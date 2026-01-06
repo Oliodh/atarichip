@@ -4,9 +4,12 @@ Public NotInheritable Class AtariTia
 
     ' TIA timing: 228 color clocks per scanline, 3 color clocks per CPU cycle = 76 CPU cycles/scanline
     ' NTSC: 262 scanlines total (3 VSYNC + 37 VBLANK + 192 visible + 30 overscan)
+    Private Const ColorClocksPerScanline As Integer = 228
+    Private Const ColorClocksPerCpuCycle As Integer = 3
     Private Const CpuCyclesPerScanline As Integer = 76
     Private Const TotalScanlines As Integer = 262
     Private Const VisibleStartLine As Integer = 40  ' After VSYNC + VBLANK
+    Private Const HBlankClocks As Integer = 68  ' Horizontal blanking period
 
     ' NTSC color palette (128 colors)
     Private Shared ReadOnly NtscPaletteData() As Integer = {
@@ -65,6 +68,7 @@ Public NotInheritable Class AtariTia
     Private _scanlineCycles As Integer
     Private _scanline As Integer
     Private _frameComplete As Boolean
+    Private _colorClock As Integer  ' Current color clock position in scanline (0-227)
 
     ' TIA registers (basic set for display)
     Private _vsync As Byte   ' Vertical sync control
@@ -139,6 +143,7 @@ Public NotInheritable Class AtariTia
     Public Sub Reset()
         _scanline = 0
         _scanlineCycles = 0
+        _colorClock = 0
         _frameComplete = False
         _vsync = 0
         _vblank = 0
@@ -182,41 +187,55 @@ Public NotInheritable Class AtariTia
     Public Sub BeginFrame()
         _scanline = 0
         _scanlineCycles = 0
+        _colorClock = 0
         _frameComplete = False
     End Sub
 
     Public Sub StepCpuCycles(cpuCycles As Integer, frameBufferArgb As Integer())
-        _scanlineCycles += cpuCycles
-
-        While _scanlineCycles >= CpuCyclesPerScanline
-            _scanlineCycles -= CpuCyclesPerScanline
-
-            ' Render visible scanline
-            Dim visibleLine As Integer = _scanline - VisibleStartLine
-            If visibleLine >= 0 AndAlso visibleLine < FrameHeight Then
-                RenderScanline(visibleLine, frameBufferArgb)
+        ' Each CPU cycle is 3 color clocks
+        ' Render pixel-by-pixel to support mid-scanline color changes ("racing the beam")
+        ' This is how real Atari 2600 hardware works and allows colorful graphics
+        Dim colorClocks As Integer = cpuCycles * ColorClocksPerCpuCycle
+        
+        For i As Integer = 0 To colorClocks - 1
+            ' Render the current pixel if we're in the visible area
+            If _colorClock >= HBlankClocks AndAlso _colorClock < ColorClocksPerScanline Then
+                Dim pixelX As Integer = _colorClock - HBlankClocks
+                Dim visibleLine As Integer = _scanline - VisibleStartLine
+                
+                If visibleLine >= 0 AndAlso visibleLine < FrameHeight AndAlso pixelX < FrameWidth Then
+                    RenderPixel(visibleLine, pixelX, frameBufferArgb)
+                End If
             End If
-
-            _scanline += 1
-            If _scanline >= TotalScanlines Then
-                _frameComplete = True
-                Exit While
+            
+            _colorClock += 1
+            
+            ' Check if we've completed a scanline
+            If _colorClock >= ColorClocksPerScanline Then
+                _colorClock = 0
+                _scanline += 1
+                
+                If _scanline >= TotalScanlines Then
+                    _frameComplete = True
+                    Exit For
+                End If
             End If
-        End While
+        Next
+        
+        ' Update scanline cycles for WSYNC support
+        _scanlineCycles = _colorClock \ ColorClocksPerCpuCycle
     End Sub
 
-    Private Sub RenderScanline(line As Integer, frameBufferArgb As Integer())
-        Dim offset As Integer = line * FrameWidth
+    Private Sub RenderPixel(line As Integer, x As Integer, frameBufferArgb As Integer())
+        Dim offset As Integer = line * FrameWidth + x
 
         ' Check if VBLANK is enabled (bit 1)
         If (_vblank And VBLANK_ENABLE_MASK) <> 0 Then
-            ' VBLANK is active - render black screen
-            For x As Integer = 0 To FrameWidth - 1
-                frameBufferArgb(offset + x) = BLACK_COLOR
-            Next
+            frameBufferArgb(offset) = BLACK_COLOR
             Return
         End If
 
+        ' Use current color registers (allows mid-scanline color changes)
         Dim bgColor As Integer = NtscPaletteData((_colubk >> 1) And 127)
         Dim pfColor As Integer = NtscPaletteData((_colupf >> 1) And 127)
         Dim p0Color As Integer = NtscPaletteData((_colup0 >> 1) And 127)
@@ -234,95 +253,82 @@ Public NotInheritable Class AtariTia
         ' PF2 bits 0-7 become bits 12-19 (reversed)
         pf = pf Or (CUInt(ReverseBits8Table(_pf2)) << 12)
 
+        ' Check playfield bit for this pixel
+        Dim pfBit As Integer
+        If x < 80 Then
+            pfBit = CInt((pf >> (x \ 4)) And 1UI)
+        Else
+            Dim rx As Integer = x - 80
+            If (_ctrlpf And 1) <> 0 Then
+                pfBit = CInt((pf >> (19 - (rx \ 4))) And 1UI)
+            Else
+                pfBit = CInt((pf >> (rx \ 4)) And 1UI)
+            End If
+        End If
+
         ' Determine which player graphics to use (with vertical delay)
         Dim grp0Display As Byte = If((_vdelp0 And 1) <> 0, _grp0Old, _grp0)
         Dim grp1Display As Byte = If((_vdelp1 And 1) <> 0, _grp1Old, _grp1)
 
-        For x As Integer = 0 To FrameWidth - 1
-            ' Check playfield
-            Dim pfBit As Integer
-            If x < 80 Then
-                ' Left half - use playfield bits 0-19
-                pfBit = CInt((pf >> (x \ 4)) And 1UI)
-            Else
-                ' Right half - mirror or repeat based on CTRLPF
-                Dim rx As Integer = x - 80
-                If (_ctrlpf And 1) <> 0 Then
-                    ' Reflected
-                    pfBit = CInt((pf >> (19 - (rx \ 4))) And 1UI)
+        ' Check sprites for this pixel
+        Dim p0Pixel As Boolean = GetPlayerPixel(grp0Display, x, _posP0, _nusiz0, _refp0)
+        Dim p1Pixel As Boolean = GetPlayerPixel(grp1Display, x, _posP1, _nusiz1, _refp1)
+        Dim m0Pixel As Boolean = GetMissilePixel(x, _posM0, _enam0, _nusiz0)
+        Dim m1Pixel As Boolean = GetMissilePixel(x, _posM1, _enam1, _nusiz1)
+        Dim blPixel As Boolean = GetBallPixel(x)
+
+        ' Collision detection
+        If m0Pixel And p1Pixel Then _cxm0p = _cxm0p Or COLLISION_BIT_HIGH
+        If m0Pixel And p0Pixel Then _cxm0p = _cxm0p Or COLLISION_BIT_LOW
+        If m1Pixel And p0Pixel Then _cxm1p = _cxm1p Or COLLISION_BIT_HIGH
+        If m1Pixel And p1Pixel Then _cxm1p = _cxm1p Or COLLISION_BIT_LOW
+        If p0Pixel And pfBit <> 0 Then _cxp0fb = _cxp0fb Or COLLISION_BIT_HIGH
+        If p0Pixel And blPixel Then _cxp0fb = _cxp0fb Or COLLISION_BIT_LOW
+        If p1Pixel And pfBit <> 0 Then _cxp1fb = _cxp1fb Or COLLISION_BIT_HIGH
+        If p1Pixel And blPixel Then _cxp1fb = _cxp1fb Or COLLISION_BIT_LOW
+        If m0Pixel And pfBit <> 0 Then _cxm0fb = _cxm0fb Or COLLISION_BIT_HIGH
+        If m0Pixel And blPixel Then _cxm0fb = _cxm0fb Or COLLISION_BIT_LOW
+        If m1Pixel And pfBit <> 0 Then _cxm1fb = _cxm1fb Or COLLISION_BIT_HIGH
+        If m1Pixel And blPixel Then _cxm1fb = _cxm1fb Or COLLISION_BIT_LOW
+        If blPixel And pfBit <> 0 Then _cxblpf = _cxblpf Or COLLISION_BIT_HIGH
+        If p0Pixel And p1Pixel Then _cxppmm = _cxppmm Or COLLISION_BIT_HIGH
+        If m0Pixel And m1Pixel Then _cxppmm = _cxppmm Or COLLISION_BIT_LOW
+
+        ' Priority rendering
+        Dim pfPriority As Boolean = (_ctrlpf And 4) <> 0
+        Dim finalColor As Integer = bgColor
+
+        If pfPriority Then
+            If pfBit <> 0 Then
+                If (_ctrlpf And 2) <> 0 Then
+                    finalColor = If(x < 80, p0Color, p1Color)
                 Else
-                    ' Repeated
-                    pfBit = CInt((pf >> (rx \ 4)) And 1UI)
+                    finalColor = pfColor
+                End If
+            ElseIf blPixel Then
+                finalColor = pfColor
+            ElseIf p0Pixel OrElse m0Pixel Then
+                finalColor = p0Color
+            ElseIf p1Pixel OrElse m1Pixel Then
+                finalColor = p1Color
+            End If
+        Else
+            If p0Pixel OrElse m0Pixel Then
+                finalColor = p0Color
+            ElseIf p1Pixel OrElse m1Pixel Then
+                finalColor = p1Color
+            ElseIf blPixel Then
+                finalColor = pfColor
+            ElseIf pfBit <> 0 Then
+                If (_ctrlpf And 2) <> 0 Then
+                    finalColor = If(x < 80, p0Color, p1Color)
+                Else
+                    finalColor = pfColor
                 End If
             End If
+        End If
 
-            ' Check sprites
-            Dim p0Pixel As Boolean = GetPlayerPixel(grp0Display, x, _posP0, _nusiz0, _refp0)
-            Dim p1Pixel As Boolean = GetPlayerPixel(grp1Display, x, _posP1, _nusiz1, _refp1)
-            Dim m0Pixel As Boolean = GetMissilePixel(x, _posM0, _enam0, _nusiz0)
-            Dim m1Pixel As Boolean = GetMissilePixel(x, _posM1, _enam1, _nusiz1)
-            Dim blPixel As Boolean = GetBallPixel(x)
-
-            ' Collision detection
-            If m0Pixel And p1Pixel Then _cxm0p = _cxm0p Or COLLISION_BIT_HIGH
-            If m0Pixel And p0Pixel Then _cxm0p = _cxm0p Or COLLISION_BIT_LOW
-            If m1Pixel And p0Pixel Then _cxm1p = _cxm1p Or COLLISION_BIT_HIGH
-            If m1Pixel And p1Pixel Then _cxm1p = _cxm1p Or COLLISION_BIT_LOW
-            If p0Pixel And pfBit <> 0 Then _cxp0fb = _cxp0fb Or COLLISION_BIT_HIGH
-            If p0Pixel And blPixel Then _cxp0fb = _cxp0fb Or COLLISION_BIT_LOW
-            If p1Pixel And pfBit <> 0 Then _cxp1fb = _cxp1fb Or COLLISION_BIT_HIGH
-            If p1Pixel And blPixel Then _cxp1fb = _cxp1fb Or COLLISION_BIT_LOW
-            If m0Pixel And pfBit <> 0 Then _cxm0fb = _cxm0fb Or COLLISION_BIT_HIGH
-            If m0Pixel And blPixel Then _cxm0fb = _cxm0fb Or COLLISION_BIT_LOW
-            If m1Pixel And pfBit <> 0 Then _cxm1fb = _cxm1fb Or COLLISION_BIT_HIGH
-            If m1Pixel And blPixel Then _cxm1fb = _cxm1fb Or COLLISION_BIT_LOW
-            If blPixel And pfBit <> 0 Then _cxblpf = _cxblpf Or COLLISION_BIT_HIGH
-            If p0Pixel And p1Pixel Then _cxppmm = _cxppmm Or COLLISION_BIT_HIGH
-            If m0Pixel And m1Pixel Then _cxppmm = _cxppmm Or COLLISION_BIT_LOW
-
-            ' Priority rendering (CTRLPF bit 2 controls playfield priority)
-            Dim pfPriority As Boolean = (_ctrlpf And 4) <> 0
-
-            Dim finalColor As Integer = bgColor
-
-            If pfPriority Then
-                ' Playfield has priority over players
-                If pfBit <> 0 Then
-                    ' Check if playfield should use player colors (CTRLPF bit 1)
-                    If (_ctrlpf And 2) <> 0 Then
-                        ' Score mode - left uses P0 color, right uses P1 color
-                        finalColor = If(x < 80, p0Color, p1Color)
-                    Else
-                        finalColor = pfColor
-                    End If
-                ElseIf blPixel Then
-                    finalColor = pfColor
-                ElseIf p0Pixel OrElse m0Pixel Then
-                    finalColor = p0Color
-                ElseIf p1Pixel OrElse m1Pixel Then
-                    finalColor = p1Color
-                End If
-            Else
-                ' Players have priority over playfield
-                If p0Pixel OrElse m0Pixel Then
-                    finalColor = p0Color
-                ElseIf p1Pixel OrElse m1Pixel Then
-                    finalColor = p1Color
-                ElseIf blPixel Then
-                    finalColor = pfColor
-                ElseIf pfBit <> 0 Then
-                    ' Check if playfield should use player colors (CTRLPF bit 1)
-                    If (_ctrlpf And 2) <> 0 Then
-                        ' Score mode - left uses P0 color, right uses P1 color
-                        finalColor = If(x < 80, p0Color, p1Color)
-                    Else
-                        finalColor = pfColor
-                    End If
-                End If
-            End If
-
-            frameBufferArgb(offset + x) = finalColor
-        Next
+        frameBufferArgb(offset) = finalColor
     End Sub
 
     Public Function Read8(reg As UShort) As Byte
@@ -359,8 +365,17 @@ Public NotInheritable Class AtariTia
         Select Case reg And &H3FUS
             Case &H00 ' VSYNC
                 ' Vertical sync control (bit 1)
-                ' VSYNC marks the start of vertical retrace, but we don't end the frame here
-                ' The frame ends naturally when all scanlines are rendered
+                ' VSYNC marks the start of vertical retrace
+                ' Detect falling edge (transition from enabled to disabled) to complete frame early
+                Dim vsyncWasEnabled As Boolean = (_vsync And VSYNC_ENABLE_MASK) <> 0
+                Dim vsyncNowEnabled As Boolean = (value And VSYNC_ENABLE_MASK) <> 0
+                
+                ' If VSYNC falling edge detected and we're past the visible area,
+                ' complete the frame to prevent screen rolling
+                If vsyncWasEnabled AndAlso Not vsyncNowEnabled AndAlso _scanline >= VisibleStartLine + FrameHeight Then
+                    _frameComplete = True
+                End If
+                
                 _vsync = value
             Case &H01 ' VBLANK
                 ' Vertical blank control (bit 1 enables blanking)
