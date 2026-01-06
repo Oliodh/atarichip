@@ -8,7 +8,8 @@ Public Class Form1
     Private _selectedRomPath As String
     Private _emulator As VcsEmulator
     Private ReadOnly _frameBuffer As Integer() = New Integer(AtariTia.FrameWidth * AtariTia.FrameHeight - 1) {}
-    Private ReadOnly _bitmap As New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, PixelFormat.Format32bppArgb)
+    Private ReadOnly _frameBufferHandle As GCHandle = GCHandle.Alloc(_frameBuffer, GCHandleType.Pinned)
+    Private ReadOnly _bitmap As New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, AtariTia.FrameWidth * 4, PixelFormat.Format32bppArgb, _frameBufferHandle.AddrOfPinnedObject())
     Private _isRendering As Boolean
 
     Public Sub New()
@@ -80,18 +81,20 @@ Public Class Form1
     End Sub
 
     Private Sub RenderFrame()
-        ' Frame is tiny (160x192), so per-frame lock/copy is acceptable for now.
-        Dim data = _bitmap.LockBits(New Rectangle(0, 0, _bitmap.Width, _bitmap.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb)
-        Try
-            Marshal.Copy(_frameBuffer, 0, data.Scan0, _frameBuffer.Length)
-        Finally
-            _bitmap.UnlockBits(data)
-        End Try
+        ' Bitmap is backed by the pinned frame buffer; refresh to display latest pixels.
+        PictureBox1.Invalidate()
+        PictureBox1.Update()
     End Sub
 
     Protected Overrides Sub OnFormClosed(e As FormClosedEventArgs)
         FrameTimer.Stop()
-        _bitmap.Dispose()
+        If _bitmap IsNot Nothing Then
+            Try
+                _bitmap.Dispose()
+            Catch
+            End Try
+        End If
+        If _frameBufferHandle.IsAllocated Then _frameBufferHandle.Free()
         MyBase.OnFormClosed(e)
     End Sub
 End Class
