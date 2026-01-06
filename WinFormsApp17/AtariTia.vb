@@ -40,6 +40,12 @@ Public NotInheritable Class AtariTia
     ' Collision detection bit masks
     Private Const COLLISION_BIT_HIGH As Byte = &H80
     Private Const COLLISION_BIT_LOW As Byte = &H40
+    
+    ' VBLANK control bit
+    Private Const VBLANK_ENABLE_BIT As Byte = 2
+    
+    ' Display colors
+    Private Const BLACK_COLOR As Integer = &HFF000000
 
     Private Shared Function InitReverseBits8Table() As Byte()
         Dim table(255) As Byte
@@ -198,11 +204,10 @@ Public NotInheritable Class AtariTia
         Dim offset As Integer = line * FrameWidth
         
         ' Check if VBLANK is enabled (bit 1)
-        If (_vblank And 2) <> 0 Then
+        If (_vblank And VBLANK_ENABLE_BIT) <> 0 Then
             ' VBLANK is active - render black screen
-            Dim blackColor As Integer = &HFF000000
             For x As Integer = 0 To FrameWidth - 1
-                frameBufferArgb(offset + x) = blackColor
+                frameBufferArgb(offset + x) = BLACK_COLOR
             Next
             Return
         End If
