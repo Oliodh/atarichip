@@ -41,6 +41,9 @@ Public NotInheritable Class AtariTia
     Private Const COLLISION_BIT_HIGH As Byte = &H80
     Private Const COLLISION_BIT_LOW As Byte = &H40
 
+    ' VSYNC control bit mask (bit 1)
+    Private Const VSYNC_ENABLE_MASK As Byte = &H02
+
     ' VBLANK control bit mask (bit 1)
     Private Const VBLANK_ENABLE_MASK As Byte = &H02
 
@@ -64,6 +67,7 @@ Public NotInheritable Class AtariTia
     Private _frameComplete As Boolean
 
     ' TIA registers (basic set for display)
+    Private _vsync As Byte   ' Vertical sync control
     Private _vblank As Byte  ' Vertical blank control
     Private _colubk As Byte  ' Background color
     Private _colupf As Byte  ' Playfield color
@@ -136,6 +140,7 @@ Public NotInheritable Class AtariTia
         _scanline = 0
         _scanlineCycles = 0
         _frameComplete = False
+        _vsync = 0
         _vblank = 0
         _colubk = 0
         _colupf = 0
@@ -354,6 +359,15 @@ Public NotInheritable Class AtariTia
         Select Case reg And &H3FUS
             Case &H00 ' VSYNC
                 ' Vertical sync control (bit 1)
+                ' When VSYNC bit 1 transitions from set to clear, reset scanline to start new frame
+                Dim oldVsync As Byte = _vsync
+                _vsync = value
+                If (oldVsync And VSYNC_ENABLE_MASK) <> 0 AndAlso (value And VSYNC_ENABLE_MASK) = 0 Then
+                    ' VSYNC ended - reset to beginning of frame
+                    _scanline = 0
+                    _scanlineCycles = 0
+                    _frameComplete = True
+                End If
             Case &H01 ' VBLANK
                 ' Vertical blank control (bit 1 enables blanking)
                 _vblank = value
