@@ -41,8 +41,8 @@ Public NotInheritable Class AtariTia
     Private Const COLLISION_BIT_HIGH As Byte = &H80
     Private Const COLLISION_BIT_LOW As Byte = &H40
     
-    ' VBLANK control bit
-    Private Const VBLANK_ENABLE_BIT As Byte = 2
+    ' VBLANK control bit mask (bit 1)
+    Private Const VBLANK_ENABLE_MASK As Byte = &H02
     
     ' Display colors
     Private Const BLACK_COLOR As Integer = &HFF000000
@@ -204,7 +204,7 @@ Public NotInheritable Class AtariTia
         Dim offset As Integer = line * FrameWidth
         
         ' Check if VBLANK is enabled (bit 1)
-        If (_vblank And VBLANK_ENABLE_BIT) <> 0 Then
+        If (_vblank And VBLANK_ENABLE_MASK) <> 0 Then
             ' VBLANK is active - render black screen
             For x As Integer = 0 To FrameWidth - 1
                 frameBufferArgb(offset + x) = BLACK_COLOR
