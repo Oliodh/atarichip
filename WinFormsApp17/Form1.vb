@@ -10,35 +10,44 @@ Public Class Form1
         InitializeComponent()
     End Sub
 
+    Private Function EnsureEmulatorLoaded(caption As String) As Boolean
+        If _emulator Is Nothing Then
+            MessageBox.Show(Me, "Choose a ROM first.", caption, MessageBoxButtons.OK, MessageBoxIcon.Information)
+            Return False
+        End If
+
+        Return True
+    End Function
+
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         Using dialog As New OpenFileDialog()
             dialog.Filter = "Atari ROMs (*.bin;*.rom;*.a26)|*.bin;*.rom;*.a26|All files (*.*)|*.*"
             dialog.Title = "Choose ROM"
 
             If dialog.ShowDialog(Me) = DialogResult.OK Then
-                _selectedRomPath = dialog.FileName
-                Dim rom As Byte() = File.ReadAllBytes(_selectedRomPath)
-                _emulator = New VcsEmulator(rom)
-                _emulator.Reset()
-                Text = $"AtariChip - {Path.GetFileName(_selectedRomPath)}"
+                Try
+                    _selectedRomPath = dialog.FileName
+                    Dim rom As Byte() = File.ReadAllBytes(_selectedRomPath)
+                    _emulator = New VcsEmulator(rom)
+                    _emulator.Reset()
+                    Text = $"AtariChip - {Path.GetFileName(_selectedRomPath)}"
+                Catch ex As Exception
+                    _selectedRomPath = Nothing
+                    _emulator = Nothing
+                    MessageBox.Show(Me, $"Failed to load ROM: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                End Try
             End If
         End Using
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
-        If _emulator Is Nothing Then
-            MessageBox.Show(Me, "Load a ROM first.", "Reset", MessageBoxButtons.OK, MessageBoxIcon.Information)
-            Return
-        End If
+        If Not EnsureEmulatorLoaded("Reset") Then Return
 
         _emulator.Reset()
     End Sub
 
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
-        If _emulator Is Nothing Then
-            MessageBox.Show(Me, "Choose a ROM first.", "Run", MessageBoxButtons.OK, MessageBoxIcon.Information)
-            Return
-        End If
+        If Not EnsureEmulatorLoaded("Run") Then Return
 
         _emulator.RunFrame(_frameBuffer)
     End Sub
