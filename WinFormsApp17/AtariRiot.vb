@@ -104,8 +104,8 @@ Public NotInheritable Class AtariRiot
     End Sub
 
     ' Joystick control methods
-    ' SWCHA bit mapping for Player 0: bit 4=right, 3=left, 2=down, 1=up, 0=unused
-    ' SWCHA bit mapping for Player 1: bit 7=right, 6=left, 5=down, 4=up
+    ' SWCHA bit mapping for Player 0: bit 7=right, 6=left, 5=down, 4=up
+    ' SWCHA bit mapping for Player 1: bit 3=right, 2=left, 1=down, 0=up
     ' Active low (0 = pressed)
     
     Public Sub SetJoystick0Up(pressed As Boolean)

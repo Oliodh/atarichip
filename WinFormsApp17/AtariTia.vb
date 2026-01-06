@@ -434,18 +434,24 @@ Public NotInheritable Class AtariTia
 
     Private Sub ApplyHorizontalMotion()
         ' Apply horizontal motion values to positions
-        _posP0 = (_posP0 + _hmp0) Mod FrameWidth
-        _posP1 = (_posP1 + _hmp1) Mod FrameWidth
-        _posM0 = (_posM0 + _hmm0) Mod FrameWidth
-        _posM1 = (_posM1 + _hmm1) Mod FrameWidth
-        _posBL = (_posBL + _hmbl) Mod FrameWidth
+        _posP0 = _posP0 + _hmp0
+        _posP1 = _posP1 + _hmp1
+        _posM0 = _posM0 + _hmm0
+        _posM1 = _posM1 + _hmm1
+        _posBL = _posBL + _hmbl
         
-        ' Handle negative positions
+        ' Handle wrapping (both negative and > width)
         If _posP0 < 0 Then _posP0 += FrameWidth
         If _posP1 < 0 Then _posP1 += FrameWidth
         If _posM0 < 0 Then _posM0 += FrameWidth
         If _posM1 < 0 Then _posM1 += FrameWidth
         If _posBL < 0 Then _posBL += FrameWidth
+        
+        If _posP0 >= FrameWidth Then _posP0 -= FrameWidth
+        If _posP1 >= FrameWidth Then _posP1 -= FrameWidth
+        If _posM0 >= FrameWidth Then _posM0 -= FrameWidth
+        If _posM1 >= FrameWidth Then _posM1 -= FrameWidth
+        If _posBL >= FrameWidth Then _posBL -= FrameWidth
     End Sub
 
     Private Function GetPlayerPixel(grp As Byte, x As Integer, pos As Integer, nusiz As Byte, refp As Byte) As Boolean

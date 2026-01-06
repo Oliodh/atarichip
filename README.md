@@ -4,7 +4,7 @@ A work-in-progress Atari 2600 emulator written in VB.NET using Windows Forms.
 
 ## Current Status
 
-This emulator is **not yet complete** enough to fully run games like Space Invaders. It is currently in early development.
+This emulator now implements all essential graphics and input features for running most Atari 2600 games. It includes sprite rendering, collision detection, and joystick input. However, it still lacks audio and bank switching for larger ROMs.
 
 ### What's Implemented
 
