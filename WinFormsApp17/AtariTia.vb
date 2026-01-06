@@ -381,15 +381,15 @@ Public NotInheritable Class AtariTia
             Case &H1F ' ENABL
                 _enabl = value
             Case &H20 ' HMP0
-                _hmp0 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+                _hmp0 = ConvertToSignedMotion(value)
             Case &H21 ' HMP1
-                _hmp1 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+                _hmp1 = ConvertToSignedMotion(value)
             Case &H22 ' HMM0
-                _hmm0 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+                _hmm0 = ConvertToSignedMotion(value)
             Case &H23 ' HMM1
-                _hmm1 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+                _hmm1 = ConvertToSignedMotion(value)
             Case &H24 ' HMBL
-                _hmbl = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+                _hmbl = ConvertToSignedMotion(value)
             Case &H25 ' VDELP0
                 _vdelp0 = value
             Case &H26 ' VDELP1
@@ -421,6 +421,12 @@ Public NotInheritable Class AtariTia
         _cxppmm = 0
     End Sub
 
+    Private Function ConvertToSignedMotion(value As Byte) As SByte
+        ' Convert horizontal motion register value to signed byte
+        ' Upper 4 bits are the motion value in two's complement
+        Return CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+    End Function
+
     Private Function GetCurrentPixel() As Integer
         ' Calculate current horizontal pixel position based on scanline cycles
         ' Each CPU cycle is 3 color clocks, and each pixel is 1 color clock
@@ -433,25 +439,12 @@ Public NotInheritable Class AtariTia
     End Function
 
     Private Sub ApplyHorizontalMotion()
-        ' Apply horizontal motion values to positions
-        _posP0 = _posP0 + _hmp0
-        _posP1 = _posP1 + _hmp1
-        _posM0 = _posM0 + _hmm0
-        _posM1 = _posM1 + _hmm1
-        _posBL = _posBL + _hmbl
-        
-        ' Handle wrapping (both negative and > width)
-        If _posP0 < 0 Then _posP0 += FrameWidth
-        If _posP1 < 0 Then _posP1 += FrameWidth
-        If _posM0 < 0 Then _posM0 += FrameWidth
-        If _posM1 < 0 Then _posM1 += FrameWidth
-        If _posBL < 0 Then _posBL += FrameWidth
-        
-        If _posP0 >= FrameWidth Then _posP0 -= FrameWidth
-        If _posP1 >= FrameWidth Then _posP1 -= FrameWidth
-        If _posM0 >= FrameWidth Then _posM0 -= FrameWidth
-        If _posM1 >= FrameWidth Then _posM1 -= FrameWidth
-        If _posBL >= FrameWidth Then _posBL -= FrameWidth
+        ' Apply horizontal motion values to positions with proper wrapping
+        _posP0 = ((_posP0 + _hmp0) Mod FrameWidth + FrameWidth) Mod FrameWidth
+        _posP1 = ((_posP1 + _hmp1) Mod FrameWidth + FrameWidth) Mod FrameWidth
+        _posM0 = ((_posM0 + _hmm0) Mod FrameWidth + FrameWidth) Mod FrameWidth
+        _posM1 = ((_posM1 + _hmm1) Mod FrameWidth + FrameWidth) Mod FrameWidth
+        _posBL = ((_posBL + _hmbl) Mod FrameWidth + FrameWidth) Mod FrameWidth
     End Sub
 
     Private Function GetCopyOffsets(copyMode As Integer) As Integer()
