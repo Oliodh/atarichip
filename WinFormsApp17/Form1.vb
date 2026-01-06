@@ -75,6 +75,9 @@ Public Class Form1
         Try
             _emulator.RunFrame(_frameBuffer)
             RenderFrame()
+        Catch ex As Exception
+            FrameTimer.Stop()
+            MessageBox.Show(Me, $"Emulation error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally
             _isRendering = False
         End Try
@@ -88,13 +91,7 @@ Public Class Form1
 
     Protected Overrides Sub OnFormClosed(e As FormClosedEventArgs)
         FrameTimer.Stop()
-        If _bitmap IsNot Nothing Then
-            Try
-                _bitmap.Dispose()
-            Catch
-                ' Ignore dispose failures while tearing down the form.
-            End Try
-        End If
+        _bitmap.Dispose()
         If _frameBufferHandle.IsAllocated Then _frameBufferHandle.Free()
         MyBase.OnFormClosed(e)
     End Sub
