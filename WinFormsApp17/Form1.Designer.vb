@@ -20,6 +20,8 @@ Partial Class Form1
     Friend WithEvents Button1 As Button
     Friend WithEvents Button2 As Button
     Friend WithEvents Button3 As Button
+    Friend WithEvents PictureBox1 As PictureBox
+    Friend WithEvents FrameTimer As Timer
 
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
@@ -27,6 +29,9 @@ Partial Class Form1
         Button1 = New Button()
         Button2 = New Button()
         Button3 = New Button()
+        PictureBox1 = New PictureBox()
+        FrameTimer = New Timer(components)
+        CType(PictureBox1, ComponentModel.ISupportInitialize).BeginInit()
         SuspendLayout()
         '
         'Button1
@@ -56,16 +61,31 @@ Partial Class Form1
         Button3.Text = "Run"
         Button3.UseVisualStyleBackColor = True
         '
+        'PictureBox1
+        '
+        PictureBox1.Location = New Point(12, 48)
+        PictureBox1.Name = "PictureBox1"
+        PictureBox1.Size = New Size(320, 384)
+        PictureBox1.SizeMode = PictureBoxSizeMode.StretchImage
+        PictureBox1.TabIndex = 3
+        PictureBox1.TabStop = False
+        '
+        'FrameTimer
+        '
+        FrameTimer.Interval = 16
+        '
         'Form1
         '
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(800, 450)
+        Controls.Add(PictureBox1)
         Controls.Add(Button3)
         Controls.Add(Button2)
         Controls.Add(Button1)
         Name = "Form1"
         Text = "Form1"
+        CType(PictureBox1, ComponentModel.ISupportInitialize).EndInit()
         ResumeLayout(False)
     End Sub
 
-End Class
+    End Class
