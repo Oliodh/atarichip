@@ -58,6 +58,7 @@ Public NotInheritable Class AtariTia
     Private _frameComplete As Boolean
 
     ' TIA registers (basic set for display)
+    Private _vblank As Byte  ' Vertical blank control
     Private _colubk As Byte  ' Background color
     Private _colupf As Byte  ' Playfield color
     Private _colup0 As Byte  ' Player 0 color
@@ -129,6 +130,7 @@ Public NotInheritable Class AtariTia
         _scanline = 0
         _scanlineCycles = 0
         _frameComplete = False
+        _vblank = 0
         _colubk = 0
         _colupf = 0
         _colup0 = 0
@@ -194,6 +196,17 @@ Public NotInheritable Class AtariTia
 
     Private Sub RenderScanline(line As Integer, frameBufferArgb As Integer())
         Dim offset As Integer = line * FrameWidth
+        
+        ' Check if VBLANK is enabled (bit 1)
+        If (_vblank And 2) <> 0 Then
+            ' VBLANK is active - render black screen
+            Dim blackColor As Integer = &HFF000000
+            For x As Integer = 0 To FrameWidth - 1
+                frameBufferArgb(offset + x) = blackColor
+            Next
+            Return
+        End If
+        
         Dim bgColor As Integer = NtscPaletteData((_colubk >> 1) And 127)
         Dim pfColor As Integer = NtscPaletteData((_colupf >> 1) And 127)
         Dim p0Color As Integer = NtscPaletteData((_colup0 >> 1) And 127)
@@ -337,7 +350,8 @@ Public NotInheritable Class AtariTia
             Case &H00 ' VSYNC
                 ' Vertical sync control (bit 1)
             Case &H01 ' VBLANK
-                ' Vertical blank control
+                ' Vertical blank control (bit 1 enables blanking)
+                _vblank = value
             Case &H02 ' WSYNC
                 ' Wait for horizontal sync - halt CPU until end of scanline
                 _scanlineCycles = CpuCyclesPerScanline - 3
