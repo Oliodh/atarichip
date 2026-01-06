@@ -20,6 +20,9 @@ Public Class Form1
             _frameBufferPinned = True
             _bitmap = New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, AtariTia.FrameWidth * 4, PixelFormat.Format32bppArgb, _frameBufferHandle.AddrOfPinnedObject())
             PictureBox1.Image = _bitmap
+            
+            ' Enable key preview to capture keyboard input
+            Me.KeyPreview = True
         Catch ex As Exception
             _frameBufferHandle = New GCHandle()
             _frameBufferPinned = False
@@ -105,5 +108,53 @@ Public Class Form1
         If _frameBufferPinned AndAlso _frameBufferHandle.IsAllocated Then _frameBufferHandle.Free()
         If _bitmap IsNot Nothing Then _bitmap.Dispose()
         MyBase.OnFormClosed(e)
+    End Sub
+
+    Protected Overrides Sub OnKeyDown(e As KeyEventArgs)
+        MyBase.OnKeyDown(e)
+        If _emulator Is Nothing Then Return
+
+        Select Case e.KeyCode
+            Case Keys.Up
+                _emulator.Riot.SetJoystick0Up(True)
+            Case Keys.Down
+                _emulator.Riot.SetJoystick0Down(True)
+            Case Keys.Left
+                _emulator.Riot.SetJoystick0Left(True)
+            Case Keys.Right
+                _emulator.Riot.SetJoystick0Right(True)
+            Case Keys.Space, Keys.ControlKey
+                _emulator.Tia.SetFireButton0(True)
+            Case Keys.F2
+                _emulator.Riot.SetConsoleSelect(True)
+            Case Keys.F3
+                _emulator.Riot.SetConsoleReset(True)
+        End Select
+
+        e.Handled = True
+    End Sub
+
+    Protected Overrides Sub OnKeyUp(e As KeyEventArgs)
+        MyBase.OnKeyUp(e)
+        If _emulator Is Nothing Then Return
+
+        Select Case e.KeyCode
+            Case Keys.Up
+                _emulator.Riot.SetJoystick0Up(False)
+            Case Keys.Down
+                _emulator.Riot.SetJoystick0Down(False)
+            Case Keys.Left
+                _emulator.Riot.SetJoystick0Left(False)
+            Case Keys.Right
+                _emulator.Riot.SetJoystick0Right(False)
+            Case Keys.Space, Keys.ControlKey
+                _emulator.Tia.SetFireButton0(False)
+            Case Keys.F2
+                _emulator.Riot.SetConsoleSelect(False)
+            Case Keys.F3
+                _emulator.Riot.SetConsoleReset(False)
+        End Select
+
+        e.Handled = True
     End Sub
 End Class

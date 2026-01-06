@@ -58,6 +58,58 @@ Public NotInheritable Class AtariTia
     Private _pf2 As Byte     ' Playfield 2
     Private _ctrlpf As Byte  ' Playfield control
 
+    ' Player/Missile/Ball graphics
+    Private _grp0 As Byte    ' Player 0 graphics
+    Private _grp1 As Byte    ' Player 1 graphics
+    Private _enam0 As Byte   ' Missile 0 enable
+    Private _enam1 As Byte   ' Missile 1 enable
+    Private _enabl As Byte   ' Ball enable
+
+    ' Position counters (horizontal position)
+    Private _posP0 As Integer ' Player 0 position
+    Private _posP1 As Integer ' Player 1 position
+    Private _posM0 As Integer ' Missile 0 position
+    Private _posM1 As Integer ' Missile 1 position
+    Private _posBL As Integer ' Ball position
+
+    ' Horizontal motion
+    Private _hmp0 As SByte   ' Player 0 motion
+    Private _hmp1 As SByte   ' Player 1 motion
+    Private _hmm0 As SByte   ' Missile 0 motion
+    Private _hmm1 As SByte   ' Missile 1 motion
+    Private _hmbl As SByte   ' Ball motion
+
+    ' Size and copies
+    Private _nusiz0 As Byte  ' Player 0 size/copies
+    Private _nusiz1 As Byte  ' Player 1 size/copies
+
+    ' Reflection
+    Private _refp0 As Byte   ' Player 0 reflect
+    Private _refp1 As Byte   ' Player 1 reflect
+
+    ' Vertical delay
+    Private _vdelp0 As Byte  ' Player 0 vertical delay
+    Private _vdelp1 As Byte  ' Player 1 vertical delay
+    Private _vdelbl As Byte  ' Ball vertical delay
+
+    ' Old graphics for vertical delay
+    Private _grp0Old As Byte
+    Private _grp1Old As Byte
+
+    ' Collision detection latches
+    Private _cxm0p As Byte   ' Missile 0 to Player collisions
+    Private _cxm1p As Byte   ' Missile 1 to Player collisions
+    Private _cxp0fb As Byte  ' Player 0 to Playfield/Ball
+    Private _cxp1fb As Byte  ' Player 1 to Playfield/Ball
+    Private _cxm0fb As Byte  ' Missile 0 to Playfield/Ball
+    Private _cxm1fb As Byte  ' Missile 1 to Playfield/Ball
+    Private _cxblpf As Byte  ' Ball to Playfield
+    Private _cxppmm As Byte  ' Player and Missile collisions
+
+    ' Input ports
+    Private _inpt4 As Byte = &H80  ' Fire button P0 (active low)
+    Private _inpt5 As Byte = &H80  ' Fire button P1 (active low)
+
     Public ReadOnly Property FrameComplete As Boolean
         Get
             Return _frameComplete
@@ -76,6 +128,33 @@ Public NotInheritable Class AtariTia
         _pf1 = 0
         _pf2 = 0
         _ctrlpf = 0
+        _grp0 = 0
+        _grp1 = 0
+        _enam0 = 0
+        _enam1 = 0
+        _enabl = 0
+        _posP0 = 0
+        _posP1 = 0
+        _posM0 = 0
+        _posM1 = 0
+        _posBL = 0
+        _hmp0 = 0
+        _hmp1 = 0
+        _hmm0 = 0
+        _hmm1 = 0
+        _hmbl = 0
+        _nusiz0 = 0
+        _nusiz1 = 0
+        _refp0 = 0
+        _refp1 = 0
+        _vdelp0 = 0
+        _vdelp1 = 0
+        _vdelbl = 0
+        _grp0Old = 0
+        _grp1Old = 0
+        _inpt4 = &H80
+        _inpt5 = &H80
+        ClearCollisions()
     End Sub
 
     Public Sub BeginFrame()
@@ -108,6 +187,8 @@ Public NotInheritable Class AtariTia
         Dim offset As Integer = line * FrameWidth
         Dim bgColor As Integer = NtscPaletteData((_colubk >> 1) And 127)
         Dim pfColor As Integer = NtscPaletteData((_colupf >> 1) And 127)
+        Dim p0Color As Integer = NtscPaletteData((_colup0 >> 1) And 127)
+        Dim p1Color As Integer = NtscPaletteData((_colup1 >> 1) And 127)
 
         ' Build 20-bit playfield pattern from PF0, PF1, PF2
         ' PF0: D4-D7 (4 bits, displayed left to right)
@@ -121,7 +202,12 @@ Public NotInheritable Class AtariTia
         ' PF2 bits 0-7 become bits 12-19 (reversed)
         pf = pf Or (CUInt(ReverseBits8Table(_pf2)) << 12)
 
+        ' Determine which player graphics to use (with vertical delay)
+        Dim grp0Display As Byte = If((_vdelp0 And 1) <> 0, _grp0Old, _grp0)
+        Dim grp1Display As Byte = If((_vdelp1 And 1) <> 0, _grp1Old, _grp1)
+
         For x As Integer = 0 To FrameWidth - 1
+            ' Check playfield
             Dim pfBit As Integer
             If x < 80 Then
                 ' Left half - use playfield bits 0-19
@@ -138,23 +224,100 @@ Public NotInheritable Class AtariTia
                 End If
             End If
 
-            If pfBit <> 0 Then
-                frameBufferArgb(offset + x) = pfColor
+            ' Check sprites
+            Dim p0Pixel As Boolean = GetPlayerPixel(grp0Display, x, _posP0, _nusiz0, _refp0)
+            Dim p1Pixel As Boolean = GetPlayerPixel(grp1Display, x, _posP1, _nusiz1, _refp1)
+            Dim m0Pixel As Boolean = GetMissilePixel(x, _posM0, _enam0, _nusiz0)
+            Dim m1Pixel As Boolean = GetMissilePixel(x, _posM1, _enam1, _nusiz1)
+            Dim blPixel As Boolean = GetBallPixel(x)
+
+            ' Collision detection
+            If m0Pixel And p1Pixel Then _cxm0p = _cxm0p Or &H80
+            If m0Pixel And p0Pixel Then _cxm0p = _cxm0p Or &H40
+            If m1Pixel And p0Pixel Then _cxm1p = _cxm1p Or &H80
+            If m1Pixel And p1Pixel Then _cxm1p = _cxm1p Or &H40
+            If p0Pixel And pfBit <> 0 Then _cxp0fb = _cxp0fb Or &H80
+            If p0Pixel And blPixel Then _cxp0fb = _cxp0fb Or &H40
+            If p1Pixel And pfBit <> 0 Then _cxp1fb = _cxp1fb Or &H80
+            If p1Pixel And blPixel Then _cxp1fb = _cxp1fb Or &H40
+            If m0Pixel And pfBit <> 0 Then _cxm0fb = _cxm0fb Or &H80
+            If m0Pixel And blPixel Then _cxm0fb = _cxm0fb Or &H40
+            If m1Pixel And pfBit <> 0 Then _cxm1fb = _cxm1fb Or &H80
+            If m1Pixel And blPixel Then _cxm1fb = _cxm1fb Or &H40
+            If blPixel And pfBit <> 0 Then _cxblpf = _cxblpf Or &H80
+            If p0Pixel And p1Pixel Then _cxppmm = _cxppmm Or &H80
+            If m0Pixel And m1Pixel Then _cxppmm = _cxppmm Or &H40
+
+            ' Priority rendering (CTRLPF bit 2 controls playfield priority)
+            Dim pfPriority As Boolean = (_ctrlpf And 4) <> 0
+
+            Dim finalColor As Integer = bgColor
+
+            If pfPriority Then
+                ' Playfield has priority over players
+                If pfBit <> 0 Then
+                    ' Check if playfield should use player colors (CTRLPF bit 1)
+                    If (_ctrlpf And 2) <> 0 Then
+                        ' Score mode - left uses P0 color, right uses P1 color
+                        finalColor = If(x < 80, p0Color, p1Color)
+                    Else
+                        finalColor = pfColor
+                    End If
+                ElseIf blPixel Then
+                    finalColor = pfColor
+                ElseIf p0Pixel OrElse m0Pixel Then
+                    finalColor = p0Color
+                ElseIf p1Pixel OrElse m1Pixel Then
+                    finalColor = p1Color
+                End If
             Else
-                frameBufferArgb(offset + x) = bgColor
+                ' Players have priority over playfield
+                If p0Pixel OrElse m0Pixel Then
+                    finalColor = p0Color
+                ElseIf p1Pixel OrElse m1Pixel Then
+                    finalColor = p1Color
+                ElseIf blPixel Then
+                    finalColor = pfColor
+                ElseIf pfBit <> 0 Then
+                    ' Check if playfield should use player colors (CTRLPF bit 1)
+                    If (_ctrlpf And 2) <> 0 Then
+                        ' Score mode - left uses P0 color, right uses P1 color
+                        finalColor = If(x < 80, p0Color, p1Color)
+                    Else
+                        finalColor = pfColor
+                    End If
+                End If
             End If
+
+            frameBufferArgb(offset + x) = finalColor
         Next
     End Sub
 
     Public Function Read8(reg As UShort) As Byte
         ' TIA read registers (active low bits, normally return collision latches, etc.)
         Select Case reg And &H0FUS
-            Case &H00 To &H07 ' Collision registers
-                Return 0
-            Case &H08 To &H0B ' Input ports
-                Return &H80 ' High bit set = not pressed
-            Case &H0C, &H0D ' Input latches
+            Case &H00 ' CXM0P - Missile 0 to Player collisions
+                Return _cxm0p
+            Case &H01 ' CXM1P - Missile 1 to Player collisions
+                Return _cxm1p
+            Case &H02 ' CXP0FB - Player 0 to Playfield/Ball
+                Return _cxp0fb
+            Case &H03 ' CXP1FB - Player 1 to Playfield/Ball
+                Return _cxp1fb
+            Case &H04 ' CXM0FB - Missile 0 to Playfield/Ball
+                Return _cxm0fb
+            Case &H05 ' CXM1FB - Missile 1 to Playfield/Ball
+                Return _cxm1fb
+            Case &H06 ' CXBLPF - Ball to Playfield
+                Return _cxblpf
+            Case &H07 ' CXPPMM - Player and Missile collisions
+                Return _cxppmm
+            Case &H08 To &H0B ' Input ports (INPT0-INPT3 for paddles, not implemented)
                 Return &H80
+            Case &H0C ' INPT4 - Fire button P0
+                Return _inpt4
+            Case &H0D ' INPT5 - Fire button P1
+                Return _inpt5
             Case Else
                 Return 0
         End Select
@@ -172,7 +335,9 @@ Public NotInheritable Class AtariTia
             Case &H03 ' RSYNC
                 ' Reset horizontal sync
             Case &H04 ' NUSIZ0 - player/missile 0 size
+                _nusiz0 = value
             Case &H05 ' NUSIZ1 - player/missile 1 size
+                _nusiz1 = value
             Case &H06 ' COLUP0
                 _colup0 = value
             Case &H07 ' COLUP1
@@ -183,13 +348,222 @@ Public NotInheritable Class AtariTia
                 _colubk = value
             Case &H0A ' CTRLPF
                 _ctrlpf = value
+            Case &H0B ' REFP0
+                _refp0 = value
+            Case &H0C ' REFP1
+                _refp1 = value
             Case &H0D ' PF0
                 _pf0 = value
             Case &H0E ' PF1
                 _pf1 = value
             Case &H0F ' PF2
                 _pf2 = value
+            Case &H10 ' RESP0 - Reset Player 0 position
+                _posP0 = GetCurrentPixel()
+            Case &H11 ' RESP1 - Reset Player 1 position
+                _posP1 = GetCurrentPixel()
+            Case &H12 ' RESM0 - Reset Missile 0 position
+                _posM0 = GetCurrentPixel()
+            Case &H13 ' RESM1 - Reset Missile 1 position
+                _posM1 = GetCurrentPixel()
+            Case &H14 ' RESBL - Reset Ball position
+                _posBL = GetCurrentPixel()
+            Case &H1B ' GRP0
+                _grp0Old = _grp0
+                _grp0 = value
+            Case &H1C ' GRP1
+                _grp1Old = _grp1
+                _grp1 = value
+            Case &H1D ' ENAM0
+                _enam0 = value
+            Case &H1E ' ENAM1
+                _enam1 = value
+            Case &H1F ' ENABL
+                _enabl = value
+            Case &H20 ' HMP0
+                _hmp0 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+            Case &H21 ' HMP1
+                _hmp1 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+            Case &H22 ' HMM0
+                _hmm0 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+            Case &H23 ' HMM1
+                _hmm1 = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+            Case &H24 ' HMBL
+                _hmbl = CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+            Case &H25 ' VDELP0
+                _vdelp0 = value
+            Case &H26 ' VDELP1
+                _vdelp1 = value
+            Case &H27 ' VDELBL
+                _vdelbl = value
+            Case &H2A ' HMOVE - Apply horizontal motion
+                ApplyHorizontalMotion()
+            Case &H2B ' HMCLR - Clear horizontal motion
+                _hmp0 = 0
+                _hmp1 = 0
+                _hmm0 = 0
+                _hmm1 = 0
+                _hmbl = 0
+            Case &H2C ' CXCLR - Clear collision latches
+                ClearCollisions()
             ' Additional registers would be handled here for sprites, etc.
         End Select
+    End Sub
+
+    Private Sub ClearCollisions()
+        _cxm0p = 0
+        _cxm1p = 0
+        _cxp0fb = 0
+        _cxp1fb = 0
+        _cxm0fb = 0
+        _cxm1fb = 0
+        _cxblpf = 0
+        _cxppmm = 0
+    End Sub
+
+    Private Function GetCurrentPixel() As Integer
+        ' Calculate current horizontal pixel position based on scanline cycles
+        ' Each CPU cycle is 3 color clocks, and each pixel is 1 color clock
+        ' We need to account for the horizontal blanking period (68 color clocks)
+        Dim colorClock As Integer = _scanlineCycles * 3
+        Dim pixel As Integer = colorClock - 68
+        If pixel < 0 Then pixel = 0
+        If pixel >= FrameWidth Then pixel = FrameWidth - 1
+        Return pixel
+    End Function
+
+    Private Sub ApplyHorizontalMotion()
+        ' Apply horizontal motion values to positions
+        _posP0 = (_posP0 + _hmp0) Mod FrameWidth
+        _posP1 = (_posP1 + _hmp1) Mod FrameWidth
+        _posM0 = (_posM0 + _hmm0) Mod FrameWidth
+        _posM1 = (_posM1 + _hmm1) Mod FrameWidth
+        _posBL = (_posBL + _hmbl) Mod FrameWidth
+        
+        ' Handle negative positions
+        If _posP0 < 0 Then _posP0 += FrameWidth
+        If _posP1 < 0 Then _posP1 += FrameWidth
+        If _posM0 < 0 Then _posM0 += FrameWidth
+        If _posM1 < 0 Then _posM1 += FrameWidth
+        If _posBL < 0 Then _posBL += FrameWidth
+    End Sub
+
+    Private Function GetPlayerPixel(grp As Byte, x As Integer, pos As Integer, nusiz As Byte, refp As Byte) As Boolean
+        ' Check if this pixel should display the player
+        Dim relX As Integer = x - pos
+        If relX < 0 Then Return False
+        
+        ' Get player width from NUSIZ (bits 0-2: 0=1x, 5=2x, 7=4x)
+        Dim sizeMode As Integer = nusiz And &H7
+        Dim pixelWidth As Integer = 1
+        If sizeMode = 5 Then pixelWidth = 2
+        If sizeMode = 7 Then pixelWidth = 4
+        
+        ' Get the copy mode
+        Dim copyMode As Integer = nusiz And &H7
+        Dim copyOffsets() As Integer = {0}
+        
+        Select Case copyMode
+            Case 0 ' One copy
+                copyOffsets = {0}
+            Case 1 ' Two copies close
+                copyOffsets = {0, 16}
+            Case 2 ' Two copies medium
+                copyOffsets = {0, 32}
+            Case 3 ' Three copies close
+                copyOffsets = {0, 16, 32}
+            Case 4 ' Two copies wide
+                copyOffsets = {0, 64}
+            Case 5 ' Double size
+                copyOffsets = {0}
+            Case 6 ' Three copies medium
+                copyOffsets = {0, 32, 64}
+            Case 7 ' Quad size
+                copyOffsets = {0}
+        End Select
+        
+        ' Check each copy
+        For Each offset In copyOffsets
+            Dim copyX As Integer = relX - offset
+            If copyX >= 0 AndAlso copyX < 8 * pixelWidth Then
+                Dim bitIndex As Integer = copyX \ pixelWidth
+                If (refp And 8) <> 0 Then
+                    ' Reflected
+                    bitIndex = 7 - bitIndex
+                End If
+                If ((grp >> bitIndex) And 1) <> 0 Then
+                    Return True
+                End If
+            End If
+        Next
+        
+        Return False
+    End Function
+
+    Private Function GetMissilePixel(x As Integer, pos As Integer, enam As Byte, nusiz As Byte) As Boolean
+        ' Check if missile is enabled
+        If (enam And 2) = 0 Then Return False
+        
+        Dim relX As Integer = x - pos
+        If relX < 0 Then Return False
+        
+        ' Get missile width from NUSIZ bits 4-5
+        Dim missileSize As Integer = (nusiz >> 4) And 3
+        Dim width As Integer = 1 << missileSize ' 1, 2, 4, or 8 pixels
+        
+        ' Get copy mode (same as player)
+        Dim copyMode As Integer = nusiz And &H7
+        Dim copyOffsets() As Integer = {0}
+        
+        Select Case copyMode
+            Case 0 ' One copy
+                copyOffsets = {0}
+            Case 1 ' Two copies close
+                copyOffsets = {0, 16}
+            Case 2 ' Two copies medium
+                copyOffsets = {0, 32}
+            Case 3 ' Three copies close
+                copyOffsets = {0, 16, 32}
+            Case 4 ' Two copies wide
+                copyOffsets = {0, 64}
+            Case 5, 7 ' Same as player
+                copyOffsets = {0}
+            Case 6 ' Three copies medium
+                copyOffsets = {0, 32, 64}
+        End Select
+        
+        ' Check each copy
+        For Each offset In copyOffsets
+            Dim copyX As Integer = relX - offset
+            If copyX >= 0 AndAlso copyX < width Then
+                Return True
+            End If
+        Next
+        
+        Return False
+    End Function
+
+    Private Function GetBallPixel(x As Integer) As Boolean
+        ' Check if ball is enabled
+        If (_enabl And 2) = 0 Then Return False
+        
+        Dim relX As Integer = x - _posBL
+        If relX < 0 Then Return False
+        
+        ' Get ball size from CTRLPF bits 4-5
+        Dim ballSize As Integer = (_ctrlpf >> 4) And 3
+        Dim width As Integer = 1 << ballSize ' 1, 2, 4, or 8 pixels
+        
+        Return relX < width
+    End Function
+
+    Public Sub SetFireButton0(pressed As Boolean)
+        ' Fire button is active low (0 = pressed, &H80 = not pressed)
+        _inpt4 = If(pressed, CByte(0), CByte(&H80))
+    End Sub
+
+    Public Sub SetFireButton1(pressed As Boolean)
+        ' Fire button is active low (0 = pressed, &H80 = not pressed)
+        _inpt5 = If(pressed, CByte(0), CByte(&H80))
     End Sub
 End Class

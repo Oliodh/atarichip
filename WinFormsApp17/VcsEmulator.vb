@@ -11,6 +11,18 @@ Public NotInheritable Class VcsEmulator
         _cpu = New Cpu6502(_bus)
     End Sub
 
+    Public ReadOnly Property Riot As AtariRiot
+        Get
+            Return _bus.Riot
+        End Get
+    End Property
+
+    Public ReadOnly Property Tia As AtariTia
+        Get
+            Return _bus.Tia
+        End Get
+    End Property
+
     Public Sub Reset()
         _cpu.Reset()
         _bus.Tia.Reset()

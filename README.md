@@ -12,6 +12,17 @@ This emulator is **not yet complete** enough to fully run games like Space Invad
 - **Playfield Rendering**: PF0, PF1, PF2 with mirror/repeat modes
 - **Background Color**: COLUBK
 - **Playfield Color**: COLUPF
+- **Player/Sprite Graphics**: GRP0, GRP1 with vertical delay support
+- **Player Colors**: COLUP0, COLUP1
+- **Player Reflection**: REFP0, REFP1 for horizontal mirroring
+- **Missile Graphics**: ENAM0, ENAM1 with enable control
+- **Ball Graphics**: ENABL with enable control
+- **Position Registers**: RESP0, RESP1, RESM0, RESM1, RESBL for positioning objects
+- **Motion Registers**: HMP0, HMP1, HMM0, HMM1, HMBL with HMOVE and HMCLR
+- **Size and Copies**: NUSIZ0, NUSIZ1 for player/missile sizing and multiple copies
+- **Collision Detection**: All collision registers (CXM0P, CXM1P, CXP0FB, CXP1FB, CXM0FB, CXM1FB, CXBLPF, CXPPMM)
+- **Priority Control**: CTRLPF bit 2 for playfield priority, bit 1 for score mode
+- **Input Handling**: Arrow keys for joystick, Space/Ctrl for fire button, F2/F3 for Select/Reset
 - **RIOT Timer**: TIM1T, TIM8T, TIM64T, T1024T with underflow handling
 - **RIOT RAM**: 128 bytes of RAM
 - **Basic TIA Sync**: WSYNC support
@@ -19,16 +30,10 @@ This emulator is **not yet complete** enough to fully run games like Space Invad
 
 ### What's Missing (Not Yet Implemented)
 
-- **Player/Sprite Graphics**: GRP0, GRP1 (essential for game characters and enemies)
-- **Missile Graphics**: ENAM0, ENAM1
-- **Ball Graphics**: ENABL
-- **Position Registers**: RESP0, RESP1, RESM0, RESM1, RESBL
-- **Motion Registers**: HMP0, HMP1, HMM0, HMM1, HMBL
-- **Collision Detection**: All collision registers return 0
-- **Player/Missile Copies**: NUSIZ0, NUSIZ1 (stubbed)
-- **Input Handling**: Joystick and console switches are not connected to keyboard
 - **Audio**: TIA sound registers (AUDC0, AUDC1, AUDF0, AUDF1, AUDV0, AUDV1)
 - **Bank Switching**: Only basic 4K ROM support (mappers like F8/F6/F4 not implemented)
+- **Paddle/Driving Controller Input**: Only joystick is implemented
+- **Latched Input (INPT4/5 latch mode)**: Fire buttons work in immediate mode only
 
 ## Building
 
@@ -43,6 +48,13 @@ dotnet build WinFormsApp17/WinFormsApp17.vbproj
 1. Click "Choose ROM" to load an Atari 2600 ROM file (.bin, .rom, .a26)
 2. Click "Reset" to reset the emulator
 3. The emulator runs automatically at ~60 FPS
+
+### Controls
+
+- **Arrow Keys**: Joystick movement (Up, Down, Left, Right)
+- **Space or Ctrl**: Fire button
+- **F2**: Console Select switch
+- **F3**: Console Reset switch
 
 ## License
 
