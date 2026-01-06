@@ -52,7 +52,7 @@ dotnet build WinFormsApp17/WinFormsApp17.vbproj
 ### Controls
 
 - **Arrow Keys**: Joystick movement (Up, Down, Left, Right)
-- **Space or Ctrl**: Fire button
+- **Space**: Fire button
 - **F2**: Console Select switch
 - **F3**: Console Reset switch
 
