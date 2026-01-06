@@ -423,7 +423,8 @@ Public NotInheritable Class AtariTia
 
     Private Function ConvertToSignedMotion(value As Byte) As SByte
         ' Convert horizontal motion register value to signed byte
-        ' Upper 4 bits are the motion value in two's complement
+        ' Upper 4 bits are the motion value in two's complement (-8 to +7)
+        ' Shift right by 4 to get motion value, then sign-extend if bit 7 is set
         Return CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
     End Function
 
@@ -440,12 +441,17 @@ Public NotInheritable Class AtariTia
 
     Private Sub ApplyHorizontalMotion()
         ' Apply horizontal motion values to positions with proper wrapping
-        _posP0 = ((_posP0 + _hmp0) Mod FrameWidth + FrameWidth) Mod FrameWidth
-        _posP1 = ((_posP1 + _hmp1) Mod FrameWidth + FrameWidth) Mod FrameWidth
-        _posM0 = ((_posM0 + _hmm0) Mod FrameWidth + FrameWidth) Mod FrameWidth
-        _posM1 = ((_posM1 + _hmm1) Mod FrameWidth + FrameWidth) Mod FrameWidth
-        _posBL = ((_posBL + _hmbl) Mod FrameWidth + FrameWidth) Mod FrameWidth
+        _posP0 = WrapPosition(_posP0 + _hmp0)
+        _posP1 = WrapPosition(_posP1 + _hmp1)
+        _posM0 = WrapPosition(_posM0 + _hmm0)
+        _posM1 = WrapPosition(_posM1 + _hmm1)
+        _posBL = WrapPosition(_posBL + _hmbl)
     End Sub
+
+    Private Function WrapPosition(position As Integer) As Integer
+        ' Wrap position to screen width, handling both negative and positive overflow
+        Return ((position Mod FrameWidth) + FrameWidth) Mod FrameWidth
+    End Function
 
     Private Function GetCopyOffsets(copyMode As Integer) As Integer()
         ' Get copy offsets based on NUSIZ copy mode
