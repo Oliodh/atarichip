@@ -454,6 +454,28 @@ Public NotInheritable Class AtariTia
         If _posBL >= FrameWidth Then _posBL -= FrameWidth
     End Sub
 
+    Private Function GetCopyOffsets(copyMode As Integer) As Integer()
+        ' Get copy offsets based on NUSIZ copy mode
+        Select Case copyMode
+            Case 0 ' One copy
+                Return {0}
+            Case 1 ' Two copies close
+                Return {0, 16}
+            Case 2 ' Two copies medium
+                Return {0, 32}
+            Case 3 ' Three copies close
+                Return {0, 16, 32}
+            Case 4 ' Two copies wide
+                Return {0, 64}
+            Case 5, 7 ' Double/Quad size (one copy)
+                Return {0}
+            Case 6 ' Three copies medium
+                Return {0, 32, 64}
+            Case Else
+                Return {0}
+        End Select
+    End Function
+
     Private Function GetPlayerPixel(grp As Byte, x As Integer, pos As Integer, nusiz As Byte, refp As Byte) As Boolean
         ' Check if this pixel should display the player
         Dim relX As Integer = x - pos
@@ -465,28 +487,8 @@ Public NotInheritable Class AtariTia
         If sizeMode = 5 Then pixelWidth = 2
         If sizeMode = 7 Then pixelWidth = 4
         
-        ' Get the copy mode
-        Dim copyMode As Integer = nusiz And &H7
-        Dim copyOffsets() As Integer = {0}
-        
-        Select Case copyMode
-            Case 0 ' One copy
-                copyOffsets = {0}
-            Case 1 ' Two copies close
-                copyOffsets = {0, 16}
-            Case 2 ' Two copies medium
-                copyOffsets = {0, 32}
-            Case 3 ' Three copies close
-                copyOffsets = {0, 16, 32}
-            Case 4 ' Two copies wide
-                copyOffsets = {0, 64}
-            Case 5 ' Double size
-                copyOffsets = {0}
-            Case 6 ' Three copies medium
-                copyOffsets = {0, 32, 64}
-            Case 7 ' Quad size
-                copyOffsets = {0}
-        End Select
+        ' Get the copy offsets
+        Dim copyOffsets() As Integer = GetCopyOffsets(nusiz And &H7)
         
         ' Check each copy
         For Each offset In copyOffsets
@@ -517,26 +519,8 @@ Public NotInheritable Class AtariTia
         Dim missileSize As Integer = (nusiz >> 4) And 3
         Dim width As Integer = 1 << missileSize ' 1, 2, 4, or 8 pixels
         
-        ' Get copy mode (same as player)
-        Dim copyMode As Integer = nusiz And &H7
-        Dim copyOffsets() As Integer = {0}
-        
-        Select Case copyMode
-            Case 0 ' One copy
-                copyOffsets = {0}
-            Case 1 ' Two copies close
-                copyOffsets = {0, 16}
-            Case 2 ' Two copies medium
-                copyOffsets = {0, 32}
-            Case 3 ' Three copies close
-                copyOffsets = {0, 16, 32}
-            Case 4 ' Two copies wide
-                copyOffsets = {0, 64}
-            Case 5, 7 ' Same as player
-                copyOffsets = {0}
-            Case 6 ' Three copies medium
-                copyOffsets = {0, 32, 64}
-        End Select
+        ' Get copy offsets (same as player)
+        Dim copyOffsets() As Integer = GetCopyOffsets(nusiz And &H7)
         
         ' Check each copy
         For Each offset In copyOffsets
