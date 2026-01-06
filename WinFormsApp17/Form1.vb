@@ -10,15 +10,20 @@ Public Class Form1
     Private ReadOnly _frameBuffer As Integer() = New Integer(AtariTia.FrameWidth * AtariTia.FrameHeight - 1) {}
     Private ReadOnly _frameBufferHandle As GCHandle
     Private ReadOnly _bitmap As Bitmap
+    Private _frameBufferPinned As Boolean
     Private _isRendering As Boolean
 
     Public Sub New()
         InitializeComponent()
         Try
             _frameBufferHandle = GCHandle.Alloc(_frameBuffer, GCHandleType.Pinned)
+            _frameBufferPinned = True
             _bitmap = New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, AtariTia.FrameWidth * 4, PixelFormat.Format32bppArgb, _frameBufferHandle.AddrOfPinnedObject())
             PictureBox1.Image = _bitmap
         Catch ex As Exception
+            _frameBufferHandle = New GCHandle()
+            _frameBufferPinned = False
+            _bitmap = Nothing
             MessageBox.Show(Me, $"Failed to prepare frame buffer: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
@@ -97,7 +102,7 @@ Public Class Form1
 
     Protected Overrides Sub OnFormClosed(e As FormClosedEventArgs)
         FrameTimer.Stop()
-        If _frameBufferHandle.IsAllocated Then _frameBufferHandle.Free()
+        If _frameBufferPinned AndAlso _frameBufferHandle.IsAllocated Then _frameBufferHandle.Free()
         If _bitmap IsNot Nothing Then _bitmap.Dispose()
         MyBase.OnFormClosed(e)
     End Sub
