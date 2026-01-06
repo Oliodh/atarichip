@@ -193,6 +193,8 @@ Public NotInheritable Class AtariTia
 
     Public Sub StepCpuCycles(cpuCycles As Integer, frameBufferArgb As Integer())
         ' Each CPU cycle is 3 color clocks
+        ' Render pixel-by-pixel to support mid-scanline color changes ("racing the beam")
+        ' This is how real Atari 2600 hardware works and allows colorful graphics
         Dim colorClocks As Integer = cpuCycles * ColorClocksPerCpuCycle
         
         For i As Integer = 0 To colorClocks - 1
@@ -240,9 +242,15 @@ Public NotInheritable Class AtariTia
         Dim p1Color As Integer = NtscPaletteData((_colup1 >> 1) And 127)
 
         ' Build 20-bit playfield pattern from PF0, PF1, PF2
+        ' PF0: D4-D7 (4 bits, displayed left to right)
+        ' PF1: D7-D0 (8 bits, displayed left to right, but stored reversed)
+        ' PF2: D0-D7 (8 bits, displayed left to right)
         Dim pf As UInteger = 0
+        ' PF0 bits 4-7 become bits 0-3 of playfield (reversed)
         pf = pf Or CUInt(ReverseBits4Table((_pf0 >> 4) And &HF))
+        ' PF1 bits 7-0 become bits 4-11 (not reversed)
         pf = pf Or (CUInt(_pf1) << 4)
+        ' PF2 bits 0-7 become bits 12-19 (reversed)
         pf = pf Or (CUInt(ReverseBits8Table(_pf2)) << 12)
 
         ' Check playfield bit for this pixel
