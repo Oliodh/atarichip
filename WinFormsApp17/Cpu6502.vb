@@ -198,7 +198,7 @@ Public NotInheritable Class Cpu6502
             Case &H48 : Push8(_a) : Return 3
             Case &H08 : Push8(CByte(_p Or FlagB Or FlagU)) : Return 3
             Case &H68 : _a = Pop8() : SetZN(_a) : Return 4
-            Case &H28 : _p = CByte(((Pop8() And (Not FlagB)) Or FlagU) And &HFF) : Return 4
+            Case &H28 : _p = CByte(((Pop8() And (CByte(&HFF) Xor FlagB)) Or FlagU) And &HFF) : Return 4
 
             ' --- ROL ---
             Case &H2A : Return Op_ROL_A()
@@ -649,7 +649,7 @@ Public NotInheritable Class Cpu6502
         Dim offset As Integer = If(raw < 128, CInt(raw), CInt(raw) - 256)
         If condition Then
             Dim oldPC As UShort = _pc
-        _pc = CUShort((CInt(_pc) + offset) And &HFFFF)
+            _pc = CUShort((CInt(_pc) + offset) And &HFFFF)
             If (oldPC And &HFF00US) <> (_pc And &HFF00US) Then
                 Return 4 ' Page crossed
             End If
@@ -671,7 +671,7 @@ Public NotInheritable Class Cpu6502
     End Function
 
     Private Function Op_RTI() As Integer
-        _p = CByte(((Pop8() And (Not FlagB)) Or FlagU) And &HFF)
+        _p = CByte(((Pop8() And (CByte(&HFF) Xor FlagB)) Or FlagU) And &HFF)
         Dim lo As Byte = Pop8()
         Dim hi As Byte = Pop8()
         _pc = CUShort(lo Or (CUShort(hi) << 8))
@@ -746,7 +746,7 @@ Public NotInheritable Class Cpu6502
     End Sub
 
     Private Sub ClearFlag(flag As Byte)
-        _p = CByte((_p And (Not flag)) And &HFF)
+        _p = CByte((_p And (CByte(&HFF) Xor flag)) And &HFF)
     End Sub
 
     Private Sub SetOrClearFlag(flag As Byte, condition As Boolean)

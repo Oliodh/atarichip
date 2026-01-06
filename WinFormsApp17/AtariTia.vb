@@ -40,10 +40,10 @@ Public NotInheritable Class AtariTia
     ' Collision detection bit masks
     Private Const COLLISION_BIT_HIGH As Byte = &H80
     Private Const COLLISION_BIT_LOW As Byte = &H40
-    
+
     ' VBLANK control bit mask (bit 1)
     Private Const VBLANK_ENABLE_MASK As Byte = &H02
-    
+
     ' Display colors
     Private Const BLACK_COLOR As Integer = &HFF000000
 
@@ -202,7 +202,7 @@ Public NotInheritable Class AtariTia
 
     Private Sub RenderScanline(line As Integer, frameBufferArgb As Integer())
         Dim offset As Integer = line * FrameWidth
-        
+
         ' Check if VBLANK is enabled (bit 1)
         If (_vblank And VBLANK_ENABLE_MASK) <> 0 Then
             ' VBLANK is active - render black screen
@@ -211,7 +211,7 @@ Public NotInheritable Class AtariTia
             Next
             Return
         End If
-        
+
         Dim bgColor As Integer = NtscPaletteData((_colubk >> 1) And 127)
         Dim pfColor As Integer = NtscPaletteData((_colupf >> 1) And 127)
         Dim p0Color As Integer = NtscPaletteData((_colup0 >> 1) And 127)
@@ -434,7 +434,7 @@ Public NotInheritable Class AtariTia
                 _hmbl = 0
             Case &H2C ' CXCLR - Clear collision latches
                 ClearCollisions()
-            ' Additional registers would be handled here for sprites, etc.
+                ' Additional registers would be handled here for sprites, etc.
         End Select
     End Sub
 
@@ -518,16 +518,16 @@ Public NotInheritable Class AtariTia
         ' Check if this pixel should display the player
         Dim relX As Integer = x - pos
         If relX < 0 Then Return False
-        
+
         ' Get player width from NUSIZ (bits 0-2: 0=1x, 5=2x, 7=4x)
         Dim sizeMode As Integer = nusiz And &H7
         Dim pixelWidth As Integer = 1
         If sizeMode = NUSIZ_DOUBLE_WIDTH Then pixelWidth = 2
         If sizeMode = NUSIZ_QUAD_WIDTH Then pixelWidth = 4
-        
+
         ' Get the copy offsets
         Dim copyOffsets() As Integer = GetCopyOffsets(nusiz And &H7)
-        
+
         ' Check each copy
         For Each offset In copyOffsets
             Dim copyX As Integer = relX - offset
@@ -542,24 +542,24 @@ Public NotInheritable Class AtariTia
                 End If
             End If
         Next
-        
+
         Return False
     End Function
 
     Private Function GetMissilePixel(x As Integer, pos As Integer, enam As Byte, nusiz As Byte) As Boolean
         ' Check if missile is enabled
         If (enam And 2) = 0 Then Return False
-        
+
         Dim relX As Integer = x - pos
         If relX < 0 Then Return False
-        
+
         ' Get missile width from NUSIZ bits 4-5
         Dim missileSize As Integer = (nusiz >> 4) And 3
         Dim width As Integer = 1 << missileSize ' 1, 2, 4, or 8 pixels
-        
+
         ' Get copy offsets (same as player)
         Dim copyOffsets() As Integer = GetCopyOffsets(nusiz And &H7)
-        
+
         ' Check each copy
         For Each offset In copyOffsets
             Dim copyX As Integer = relX - offset
@@ -567,21 +567,21 @@ Public NotInheritable Class AtariTia
                 Return True
             End If
         Next
-        
+
         Return False
     End Function
 
     Private Function GetBallPixel(x As Integer) As Boolean
         ' Check if ball is enabled
         If (_enabl And 2) = 0 Then Return False
-        
+
         Dim relX As Integer = x - _posBL
         If relX < 0 Then Return False
-        
+
         ' Get ball size from CTRLPF bits 4-5
         Dim ballSize As Integer = (_ctrlpf >> 4) And 3
         Dim width As Integer = 1 << ballSize ' 1, 2, 4, or 8 pixels
-        
+
         Return relX < width
     End Function
 

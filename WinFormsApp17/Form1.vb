@@ -20,7 +20,7 @@ Public Class Form1
             _frameBufferPinned = True
             _bitmap = New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, AtariTia.FrameWidth * 4, PixelFormat.Format32bppArgb, _frameBufferHandle.AddrOfPinnedObject())
             PictureBox1.Image = _bitmap
-            
+
             ' Enable key preview to capture keyboard input
             Me.KeyPreview = True
         Catch ex As Exception
