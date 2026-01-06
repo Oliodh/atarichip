@@ -275,7 +275,7 @@ Public NotInheritable Class Cpu6502
 
     Private Function AddrImm() As UShort
         Dim addr As UShort = _pc
-        _pc = CUShort(_pc + 1)
+        _pc = CUShort((CInt(_pc) + 1) And &HFFFF)
         Return addr
     End Function
 
@@ -649,7 +649,7 @@ Public NotInheritable Class Cpu6502
         Dim offset As Integer = If(raw < 128, CInt(raw), CInt(raw) - 256)
         If condition Then
             Dim oldPC As UShort = _pc
-            _pc = CUShort((_pc + offset) And &HFFFF)
+        _pc = CUShort((CInt(_pc) + offset) And &HFFFF)
             If (oldPC And &HFF00US) <> (_pc And &HFF00US) Then
                 Return 4 ' Page crossed
             End If
@@ -659,7 +659,7 @@ Public NotInheritable Class Cpu6502
     End Function
 
     Private Function Op_BRK() As Integer
-        _pc = CUShort(_pc + 1)
+        _pc = CUShort((CInt(_pc) + 1) And &HFFFF)
         Push8(CByte((_pc >> 8) And &HFF))
         Push8(CByte(_pc And &HFF))
         Push8(CByte(_p Or FlagB Or FlagU))
@@ -682,13 +682,13 @@ Public NotInheritable Class Cpu6502
         Dim lo As Byte = Pop8()
         Dim hi As Byte = Pop8()
         _pc = CUShort(lo Or (CUShort(hi) << 8))
-        _pc = CUShort(_pc + 1)
+        _pc = CUShort((CInt(_pc) + 1) And &HFFFF)
         Return 6
     End Function
 
     Private Function Op_JSR() As Integer
         Dim addr As UShort = Fetch16()
-        Dim ret As UShort = CUShort(_pc - 1)
+        Dim ret As UShort = CUShort((CInt(_pc) - 1) And &HFFFF)
         Push8(CByte((ret >> 8) And &HFF))
         Push8(CByte(ret And &HFF))
         _pc = addr
@@ -717,7 +717,7 @@ Public NotInheritable Class Cpu6502
 
     Private Function Fetch8() As Byte
         Dim v As Byte = Read8(_pc)
-        _pc = CUShort(_pc + 1)
+        _pc = CUShort((CInt(_pc) + 1) And &HFFFF)
         Return v
     End Function
 
