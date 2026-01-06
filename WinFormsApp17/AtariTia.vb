@@ -456,8 +456,9 @@ Public NotInheritable Class AtariTia
         Dim motion4bit As Integer = value >> 4
         ' Check if bit 3 (sign bit of 4-bit value) is set for sign extension
         If (motion4bit And &H8) <> 0 Then
-            ' Negative: sign-extend by ORing with 0xF0
-            Return CSByte(motion4bit Or &HF0)
+            ' Negative: motion4bit is 8-15, need to convert to -8 to -1
+            ' Subtract 16 to get the proper signed value
+            Return CSByte(motion4bit - 16)
         Else
             ' Positive: already in correct range 0-7
             Return CSByte(motion4bit)
