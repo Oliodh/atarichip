@@ -74,8 +74,11 @@ Public Class Form1
 
     Private Sub RenderFrame()
         Dim data = _bitmap.LockBits(New Rectangle(0, 0, _bitmap.Width, _bitmap.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb)
-        Marshal.Copy(_frameBuffer, 0, data.Scan0, _frameBuffer.Length)
-        _bitmap.UnlockBits(data)
-        PictureBox1.Image = _bitmap
+        Try
+            Marshal.Copy(_frameBuffer, 0, data.Scan0, _frameBuffer.Length)
+        Finally
+            _bitmap.UnlockBits(data)
+        End Try
+        If PictureBox1.Image IsNot _bitmap Then PictureBox1.Image = _bitmap
     End Sub
 End Class
