@@ -12,6 +12,7 @@ Public Class Form1
 
     Public Sub New()
         InitializeComponent()
+        PictureBox1.Image = _bitmap
     End Sub
 
     Private Function EnsureEmulatorLoaded(caption As String) As Boolean
@@ -79,6 +80,11 @@ Public Class Form1
         Finally
             _bitmap.UnlockBits(data)
         End Try
-        If PictureBox1.Image IsNot _bitmap Then PictureBox1.Image = _bitmap
+    End Sub
+
+    Protected Overrides Sub OnFormClosed(e As FormClosedEventArgs)
+        FrameTimer.Stop()
+        _bitmap.Dispose()
+        MyBase.OnFormClosed(e)
     End Sub
 End Class
