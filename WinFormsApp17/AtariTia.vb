@@ -359,15 +359,9 @@ Public NotInheritable Class AtariTia
         Select Case reg And &H3FUS
             Case &H00 ' VSYNC
                 ' Vertical sync control (bit 1)
-                ' When VSYNC bit 1 transitions from set to clear, reset scanline to start new frame
-                Dim oldVsync As Byte = _vsync
+                ' VSYNC marks the start of vertical retrace, but we don't end the frame here
+                ' The frame ends naturally when all scanlines are rendered
                 _vsync = value
-                If (oldVsync And VSYNC_ENABLE_MASK) <> 0 AndAlso (value And VSYNC_ENABLE_MASK) = 0 Then
-                    ' VSYNC ended - reset to beginning of frame
-                    _scanline = 0
-                    _scanlineCycles = 0
-                    _frameComplete = True
-                End If
             Case &H01 ' VBLANK
                 ' Vertical blank control (bit 1 enables blanking)
                 _vblank = value
