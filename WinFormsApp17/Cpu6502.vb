@@ -644,7 +644,9 @@ Public NotInheritable Class Cpu6502
     End Function
 
     Private Function Op_Branch(condition As Boolean) As Integer
-        Dim offset As SByte = CSByte(Fetch8())
+        Dim raw As Byte = Fetch8()
+        ' Convert unsigned byte to signed offset (two's complement)
+        Dim offset As Integer = If(raw < 128, CInt(raw), CInt(raw) - 256)
         If condition Then
             Dim oldPC As UShort = _pc
             _pc = CUShort((_pc + offset) And &HFFFF)
