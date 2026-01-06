@@ -252,8 +252,8 @@ Public NotInheritable Class AtariTia
         pf = pf Or CUInt(ReverseBits4Table((_pf0 >> 4) And &HF))
         ' PF1 bits 7-0 become bits 4-11 (not reversed)
         pf = pf Or (CUInt(_pf1) << 4)
-        ' PF2 bits 0-7 become bits 12-19 (reversed)
-        pf = pf Or (CUInt(ReverseBits8Table(_pf2)) << 12)
+        ' PF2 bits 0-7 become bits 12-19 (not reversed - straightforward order)
+        pf = pf Or (CUInt(_pf2) << 12)
 
         ' Check playfield bit for this pixel
         Dim pfBit As Integer
