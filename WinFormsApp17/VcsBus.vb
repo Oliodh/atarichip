@@ -13,24 +13,8 @@ Public NotInheritable Class VcsBus
     Public Function Read8(addr As UShort) As Byte
         Dim a As UShort = CUShort(addr And &H1FFFUS)
 
-        ' 2600 decoding is heavily mirrored.
-        ' TIA: 0000-007F (mirrored)
-        If a < &H80US Then
-            Return Tia.Read8(CUShort(a And &H3FUS))
-        End If
-
-        ' RIOT: 0080-00FF RAM (mirrored)
-        If a < &H100US Then
-            Return Riot.ReadRam(CUShort(a And &H7FUS))
-        End If
-
-        ' RIOT I/O/timer: 0280-0297 (mirrors exist) - simplified mapping here.
-        If a >= &H280US AndAlso a <= &H297US Then
-            Return Riot.ReadIo(CUShort(a))
-        End If
-
-        ' Cartridge ROM: 1000-1FFF (4K)
-        If a >= &H1000US Then
+        ' Cartridge ROM: A12=1 (addresses 1000-1FFF)
+        If (a And &H1000US) <> 0 Then
             Dim romIndex As Integer = CInt(a And &HFFFUS)
             If _rom.Length = 4096 Then
                 Return _rom(romIndex)
@@ -41,27 +25,45 @@ Public NotInheritable Class VcsBus
             Return _rom(romIndex Mod _rom.Length)
         End If
 
-        Return 0
+        ' A12=0: Check A7 to distinguish TIA vs RIOT
+        If (a And &H80US) = 0 Then
+            ' A7=0: TIA (mirrored every 0x40 bytes)
+            Return Tia.Read8(CUShort(a And &H3FUS))
+        End If
+
+        ' A7=1: RIOT area - Check A9 to distinguish RAM vs I/O
+        If (a And &H200US) = 0 Then
+            ' A9=0: RIOT RAM (mirrored, 128 bytes)
+            Return Riot.ReadRam(CUShort(a And &H7FUS))
+        Else
+            ' A9=1: RIOT I/O/Timer
+            Return Riot.ReadIo(CUShort(a))
+        End If
     End Function
 
     Public Sub Write8(addr As UShort, value As Byte)
         Dim a As UShort = CUShort(addr And &H1FFFUS)
 
-        If a < &H80US Then
+        ' Cartridge ROM: A12=1 (addresses 1000-1FFF)
+        ' Writes to ROM area ignored (unless mapper bank switching, not yet).
+        If (a And &H1000US) <> 0 Then
+            Return
+        End If
+
+        ' A12=0: Check A7 to distinguish TIA vs RIOT
+        If (a And &H80US) = 0 Then
+            ' A7=0: TIA (mirrored every 0x40 bytes)
             Tia.Write8(CUShort(a And &H3FUS), value)
             Return
         End If
 
-        If a < &H100US Then
+        ' A7=1: RIOT area - Check A9 to distinguish RAM vs I/O
+        If (a And &H200US) = 0 Then
+            ' A9=0: RIOT RAM (mirrored, 128 bytes)
             Riot.WriteRam(CUShort(a And &H7FUS), value)
-            Return
-        End If
-
-        If a >= &H280US AndAlso a <= &H297US Then
+        Else
+            ' A9=1: RIOT I/O/Timer
             Riot.WriteIo(CUShort(a), value)
-            Return
         End If
-
-        ' Writes to ROM area ignored (unless mapper bank switching, not yet).
     End Sub
 End Class
