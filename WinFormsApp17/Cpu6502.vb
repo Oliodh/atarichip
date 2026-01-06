@@ -37,6 +37,17 @@ Public NotInheritable Class Cpu6502
         Dim opcode As Byte = Fetch8()
 
         Select Case opcode
+            Case &H00 ' BRK
+                _pc = CUShort(_pc + 1)
+                Push8(CByte((_pc >> 8) And &HFFUS))
+                Push8(CByte(_pc And &HFFUS))
+                Push8(CByte(_p Or FlagB Or FlagU))
+                _p = CByte(_p Or FlagI)
+                Dim loVec As Byte = Read8(&HFFFEUS)
+                Dim hiVec As Byte = Read8(&HFFFFUS)
+                _pc = CUShort(loVec Or (hiVec << 8))
+                Return 7
+
             Case &HEA ' NOP
                 Return 2
 
