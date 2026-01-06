@@ -649,7 +649,7 @@ Public NotInheritable Class Cpu6502
         Dim offset As Integer = If(raw < 128, CInt(raw), CInt(raw) - 256)
         If condition Then
             Dim oldPC As UShort = _pc
-        _pc = CUShort((CInt(_pc) + offset) And &HFFFF)
+            _pc = CUShort((CInt(_pc) + offset) And &HFFFF)
             If (oldPC And &HFF00US) <> (_pc And &HFF00US) Then
                 Return 4 ' Page crossed
             End If
