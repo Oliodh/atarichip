@@ -3,7 +3,9 @@ Public NotInheritable Class VcsEmulator
     Private ReadOnly _cpu As Cpu6502
 
     ' Maximum cycles per frame to prevent infinite loops
-    Private Const MaxCyclesPerFrame As Integer = 100000
+    ' NTSC: 262 scanlines × 76 CPU cycles/scanline = 19,912 cycles per frame
+    ' Adding a small margin for safety
+    Private Const MaxCyclesPerFrame As Integer = 20000
 
     Public Sub New(rom As Byte())
         If rom Is Nothing OrElse rom.Length = 0 Then Throw New ArgumentException("ROM is empty.", NameOf(rom))

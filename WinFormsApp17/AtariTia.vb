@@ -119,6 +119,7 @@ Public NotInheritable Class AtariTia
     ' Old graphics for vertical delay
     Private _grp0Old As Byte
     Private _grp1Old As Byte
+    Private _enablOld As Byte  ' Ball enable old value for vertical delay
 
     ' Collision detection latches
     Private _cxm0p As Byte   ' Missile 0 to Player collisions
@@ -179,6 +180,7 @@ Public NotInheritable Class AtariTia
         _vdelbl = 0
         _grp0Old = 0
         _grp1Old = 0
+        _enablOld = 0
         _inpt4 = &H80
         _inpt5 = &H80
         ClearCollisions()
@@ -366,14 +368,19 @@ Public NotInheritable Class AtariTia
             Case &H00 ' VSYNC
                 ' Vertical sync control (bit 1)
                 ' VSYNC marks the start of vertical retrace
-                ' Detect falling edge (transition from enabled to disabled) to complete frame early
+                ' Detect rising edge (transition from disabled to enabled) to start a new frame
+                ' This is how real Atari 2600 hardware works - VSYNC rising edge resets the TV beam
                 Dim vsyncWasEnabled As Boolean = (_vsync And VSYNC_ENABLE_MASK) <> 0
                 Dim vsyncNowEnabled As Boolean = (value And VSYNC_ENABLE_MASK) <> 0
                 
-                ' If VSYNC falling edge detected and we're past the visible area,
-                ' complete the frame to prevent screen rolling
-                If vsyncWasEnabled AndAlso Not vsyncNowEnabled AndAlso _scanline >= VisibleStartLine + FrameHeight Then
-                    _frameComplete = True
+                ' If VSYNC rising edge detected (game is starting VSYNC period),
+                ' complete the current frame and prepare for next frame
+                ' This prevents screen rolling by synchronizing with the game's VSYNC signal
+                If Not vsyncWasEnabled AndAlso vsyncNowEnabled Then
+                    ' Only complete frame if we've rendered at least some visible content
+                    If _scanline >= VisibleStartLine Then
+                        _frameComplete = True
+                    End If
                 End If
                 
                 _vsync = value
@@ -382,9 +389,12 @@ Public NotInheritable Class AtariTia
                 _vblank = value
             Case &H02 ' WSYNC
                 ' Wait for horizontal sync - halt CPU until end of scanline
-                _scanlineCycles = CpuCyclesPerScanline - 3
+                ' Advance color clock to end of scanline (this effectively halts the CPU)
+                ' The remaining pixels on this scanline should be rendered black
+                _colorClock = ColorClocksPerScanline - 3  ' Position near end of scanline
             Case &H03 ' RSYNC
-                ' Reset horizontal sync
+                ' Reset horizontal sync - reset color clock to 0
+                _colorClock = 0
             Case &H04 ' NUSIZ0 - player/missile 0 size
                 _nusiz0 = value
             Case &H05 ' NUSIZ1 - player/missile 1 size
@@ -420,15 +430,19 @@ Public NotInheritable Class AtariTia
             Case &H14 ' RESBL - Reset Ball position
                 _posBL = GetCurrentPixel()
             Case &H1B ' GRP0
-                _grp0Old = _grp0
+                ' Writing to GRP0:
+                ' 1. Copies current GRP1 to GRP1Old (cross-latch - for VDELP1)
+                ' 2. Sets new GRP0 value
+                _grp1Old = _grp1
                 _grp0 = value
-                ' Writing to GRP0 also latches GRP1 into GRP1Old (cross-latch behavior)
-                _grp1Old = _grp1
             Case &H1C ' GRP1
-                _grp1Old = _grp1
-                _grp1 = value
-                ' Writing to GRP1 also latches GRP0 into GRP0Old (cross-latch behavior)
+                ' Writing to GRP1:
+                ' 1. Copies current GRP0 to GRP0Old (cross-latch - for VDELP0)
+                ' 2. Copies current ENABL to ENABLOld (cross-latch - for VDELBL)
+                ' 3. Sets new GRP1 value
                 _grp0Old = _grp0
+                _enablOld = _enabl
+                _grp1 = value
             Case &H1D ' ENAM0
                 _enam0 = value
             Case &H1E ' ENAM1
@@ -493,11 +507,9 @@ Public NotInheritable Class AtariTia
     End Function
 
     Private Function GetCurrentPixel() As Integer
-        ' Calculate current horizontal pixel position based on scanline cycles
-        ' Each CPU cycle is 3 color clocks, and each pixel is 1 color clock
+        ' Calculate current horizontal pixel position based on color clock
         ' We need to account for the horizontal blanking period (68 color clocks)
-        Dim colorClock As Integer = _scanlineCycles * 3
-        Dim pixel As Integer = colorClock - 68
+        Dim pixel As Integer = _colorClock - HBlankClocks
         If pixel < 0 Then pixel = 0
         If pixel >= FrameWidth Then pixel = FrameWidth - 1
         Return pixel
@@ -560,10 +572,14 @@ Public NotInheritable Class AtariTia
             Dim copyX As Integer = relX - offset
             If copyX >= 0 AndAlso copyX < 8 * pixelWidth Then
                 Dim bitIndex As Integer = copyX \ pixelWidth
-                If (refp And 8) <> 0 Then
-                    ' Reflected
+                ' In GRP register, bit 7 is the leftmost pixel, bit 0 is rightmost
+                ' Without reflection: leftmost pixel (bitIndex 0) uses bit 7
+                ' With reflection: leftmost pixel (bitIndex 0) uses bit 0
+                If (refp And 8) = 0 Then
+                    ' Not reflected - bit 7 is leftmost
                     bitIndex = 7 - bitIndex
                 End If
+                ' If reflected, bitIndex stays as-is (bit 0 is leftmost)
                 If ((grp >> bitIndex) And 1) <> 0 Then
                     Return True
                 End If
@@ -599,8 +615,11 @@ Public NotInheritable Class AtariTia
     End Function
 
     Private Function GetBallPixel(x As Integer) As Boolean
-        ' Check if ball is enabled
-        If (_enabl And 2) = 0 Then Return False
+        ' Check which ball enable to use based on vertical delay
+        Dim enablDisplay As Byte = If((_vdelbl And 1) <> 0, _enablOld, _enabl)
+        
+        ' Check if ball is enabled (bit 1)
+        If (enablDisplay And 2) = 0 Then Return False
 
         Dim relX As Integer = x - _posBL
         If relX < 0 Then Return False
