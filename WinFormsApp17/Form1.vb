@@ -92,6 +92,7 @@ Public Class Form1
             Try
                 _bitmap.Dispose()
             Catch
+                ' Ignore dispose failures while tearing down the form.
             End Try
         End If
         If _frameBufferHandle.IsAllocated Then _frameBufferHandle.Free()
