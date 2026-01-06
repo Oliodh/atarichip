@@ -2,6 +2,9 @@ Public NotInheritable Class VcsEmulator
     Private ReadOnly _bus As VcsBus
     Private ReadOnly _cpu As Cpu6502
 
+    ' Maximum cycles per frame to prevent infinite loops
+    Private Const MaxCyclesPerFrame As Integer = 100000
+
     Public Sub New(rom As Byte())
         If rom Is Nothing OrElse rom.Length = 0 Then Throw New ArgumentException("ROM is empty.", NameOf(rom))
         _bus = New VcsBus(rom)
@@ -22,9 +25,11 @@ Public NotInheritable Class VcsEmulator
         ' For now, we just run enough CPU cycles to let the TIA produce a frame.
         _bus.Tia.BeginFrame()
 
-        While Not _bus.Tia.FrameComplete
+        Dim totalCycles As Integer = 0
+        While Not _bus.Tia.FrameComplete AndAlso totalCycles < MaxCyclesPerFrame
             Dim cpuCycles As Integer = _cpu.StepInstruction()
             _bus.Tia.StepCpuCycles(cpuCycles, frameBufferArgb)
+            totalCycles += cpuCycles
 
             ' RIOT timer would also tick here; currently stubbed.
             _bus.Riot.StepCpuCycles(cpuCycles)
