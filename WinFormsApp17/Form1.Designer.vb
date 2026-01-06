@@ -72,7 +72,7 @@ Partial Class Form1
         '
         'FrameTimer
         '
-        FrameTimer.Interval = 16 ' ~62 FPS (16 ms)
+        FrameTimer.Interval = 17 ' ~60 FPS (17 ms)
         '
         'Form1
         '

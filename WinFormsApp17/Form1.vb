@@ -8,13 +8,19 @@ Public Class Form1
     Private _selectedRomPath As String
     Private _emulator As VcsEmulator
     Private ReadOnly _frameBuffer As Integer() = New Integer(AtariTia.FrameWidth * AtariTia.FrameHeight - 1) {}
-    Private ReadOnly _frameBufferHandle As GCHandle = GCHandle.Alloc(_frameBuffer, GCHandleType.Pinned)
-    Private ReadOnly _bitmap As New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, AtariTia.FrameWidth * 4, PixelFormat.Format32bppArgb, _frameBufferHandle.AddrOfPinnedObject())
+    Private ReadOnly _frameBufferHandle As GCHandle
+    Private ReadOnly _bitmap As Bitmap
     Private _isRendering As Boolean
 
     Public Sub New()
         InitializeComponent()
-        PictureBox1.Image = _bitmap
+        Try
+            _frameBufferHandle = GCHandle.Alloc(_frameBuffer, GCHandleType.Pinned)
+            _bitmap = New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, AtariTia.FrameWidth * 4, PixelFormat.Format32bppArgb, _frameBufferHandle.AddrOfPinnedObject())
+            PictureBox1.Image = _bitmap
+        Catch ex As Exception
+            MessageBox.Show(Me, $"Failed to prepare frame buffer: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
     End Sub
 
     Private Function EnsureEmulatorLoaded(caption As String) As Boolean
@@ -91,8 +97,8 @@ Public Class Form1
 
     Protected Overrides Sub OnFormClosed(e As FormClosedEventArgs)
         FrameTimer.Stop()
-        _bitmap.Dispose()
         If _frameBufferHandle.IsAllocated Then _frameBufferHandle.Free()
+        If _bitmap IsNot Nothing Then _bitmap.Dispose()
         MyBase.OnFormClosed(e)
     End Sub
 End Class
