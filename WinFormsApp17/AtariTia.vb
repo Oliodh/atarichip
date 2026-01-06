@@ -32,6 +32,15 @@ Public NotInheritable Class AtariTia
     Private Shared ReadOnly ReverseBits4Table() As Byte = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15}
     Private Shared ReadOnly ReverseBits8Table() As Byte = InitReverseBits8Table()
 
+    ' NUSIZ player size modes
+    Private Const NUSIZ_NORMAL_WIDTH As Integer = 0
+    Private Const NUSIZ_DOUBLE_WIDTH As Integer = 5
+    Private Const NUSIZ_QUAD_WIDTH As Integer = 7
+
+    ' Collision detection bit masks
+    Private Const COLLISION_BIT_HIGH As Byte = &H80
+    Private Const COLLISION_BIT_LOW As Byte = &H40
+
     Private Shared Function InitReverseBits8Table() As Byte()
         Dim table(255) As Byte
         For i As Integer = 0 To 255
@@ -232,21 +241,21 @@ Public NotInheritable Class AtariTia
             Dim blPixel As Boolean = GetBallPixel(x)
 
             ' Collision detection
-            If m0Pixel And p1Pixel Then _cxm0p = _cxm0p Or &H80
-            If m0Pixel And p0Pixel Then _cxm0p = _cxm0p Or &H40
-            If m1Pixel And p0Pixel Then _cxm1p = _cxm1p Or &H80
-            If m1Pixel And p1Pixel Then _cxm1p = _cxm1p Or &H40
-            If p0Pixel And pfBit <> 0 Then _cxp0fb = _cxp0fb Or &H80
-            If p0Pixel And blPixel Then _cxp0fb = _cxp0fb Or &H40
-            If p1Pixel And pfBit <> 0 Then _cxp1fb = _cxp1fb Or &H80
-            If p1Pixel And blPixel Then _cxp1fb = _cxp1fb Or &H40
-            If m0Pixel And pfBit <> 0 Then _cxm0fb = _cxm0fb Or &H80
-            If m0Pixel And blPixel Then _cxm0fb = _cxm0fb Or &H40
-            If m1Pixel And pfBit <> 0 Then _cxm1fb = _cxm1fb Or &H80
-            If m1Pixel And blPixel Then _cxm1fb = _cxm1fb Or &H40
-            If blPixel And pfBit <> 0 Then _cxblpf = _cxblpf Or &H80
-            If p0Pixel And p1Pixel Then _cxppmm = _cxppmm Or &H80
-            If m0Pixel And m1Pixel Then _cxppmm = _cxppmm Or &H40
+            If m0Pixel And p1Pixel Then _cxm0p = _cxm0p Or COLLISION_BIT_HIGH
+            If m0Pixel And p0Pixel Then _cxm0p = _cxm0p Or COLLISION_BIT_LOW
+            If m1Pixel And p0Pixel Then _cxm1p = _cxm1p Or COLLISION_BIT_HIGH
+            If m1Pixel And p1Pixel Then _cxm1p = _cxm1p Or COLLISION_BIT_LOW
+            If p0Pixel And pfBit <> 0 Then _cxp0fb = _cxp0fb Or COLLISION_BIT_HIGH
+            If p0Pixel And blPixel Then _cxp0fb = _cxp0fb Or COLLISION_BIT_LOW
+            If p1Pixel And pfBit <> 0 Then _cxp1fb = _cxp1fb Or COLLISION_BIT_HIGH
+            If p1Pixel And blPixel Then _cxp1fb = _cxp1fb Or COLLISION_BIT_LOW
+            If m0Pixel And pfBit <> 0 Then _cxm0fb = _cxm0fb Or COLLISION_BIT_HIGH
+            If m0Pixel And blPixel Then _cxm0fb = _cxm0fb Or COLLISION_BIT_LOW
+            If m1Pixel And pfBit <> 0 Then _cxm1fb = _cxm1fb Or COLLISION_BIT_HIGH
+            If m1Pixel And blPixel Then _cxm1fb = _cxm1fb Or COLLISION_BIT_LOW
+            If blPixel And pfBit <> 0 Then _cxblpf = _cxblpf Or COLLISION_BIT_HIGH
+            If p0Pixel And p1Pixel Then _cxppmm = _cxppmm Or COLLISION_BIT_HIGH
+            If m0Pixel And m1Pixel Then _cxppmm = _cxppmm Or COLLISION_BIT_LOW
 
             ' Priority rendering (CTRLPF bit 2 controls playfield priority)
             Dim pfPriority As Boolean = (_ctrlpf And 4) <> 0
@@ -423,9 +432,17 @@ Public NotInheritable Class AtariTia
 
     Private Function ConvertToSignedMotion(value As Byte) As SByte
         ' Convert horizontal motion register value to signed byte
-        ' Upper 4 bits are the motion value in two's complement (-8 to +7)
-        ' Shift right by 4 to get motion value, then sign-extend if bit 7 is set
-        Return CSByte((value >> 4) Or (If((value And &H80) <> 0, &HF0, 0)))
+        ' Upper 4 bits (bits 7-4) are the motion value in two's complement (-8 to +7)
+        ' Shift right by 4 to get motion value, then sign-extend to 8 bits
+        Dim motion4bit As Integer = value >> 4
+        ' Check if bit 3 (sign bit of 4-bit value) is set for sign extension
+        If (motion4bit And &H8) <> 0 Then
+            ' Negative: sign-extend by ORing with 0xF0
+            Return CSByte(motion4bit Or &HF0)
+        Else
+            ' Positive: already in correct range 0-7
+            Return CSByte(motion4bit)
+        End If
     End Function
 
     Private Function GetCurrentPixel() As Integer
@@ -466,7 +483,7 @@ Public NotInheritable Class AtariTia
                 Return {0, 16, 32}
             Case 4 ' Two copies wide
                 Return {0, 64}
-            Case 5, 7 ' Double/Quad size (one copy)
+            Case NUSIZ_DOUBLE_WIDTH, NUSIZ_QUAD_WIDTH ' Double/Quad size (one copy)
                 Return {0}
             Case 6 ' Three copies medium
                 Return {0, 32, 64}
@@ -483,8 +500,8 @@ Public NotInheritable Class AtariTia
         ' Get player width from NUSIZ (bits 0-2: 0=1x, 5=2x, 7=4x)
         Dim sizeMode As Integer = nusiz And &H7
         Dim pixelWidth As Integer = 1
-        If sizeMode = 5 Then pixelWidth = 2
-        If sizeMode = 7 Then pixelWidth = 4
+        If sizeMode = NUSIZ_DOUBLE_WIDTH Then pixelWidth = 2
+        If sizeMode = NUSIZ_QUAD_WIDTH Then pixelWidth = 4
         
         ' Get the copy offsets
         Dim copyOffsets() As Integer = GetCopyOffsets(nusiz And &H7)

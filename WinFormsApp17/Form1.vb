@@ -123,7 +123,7 @@ Public Class Form1
                 _emulator.Riot.SetJoystick0Left(True)
             Case Keys.Right
                 _emulator.Riot.SetJoystick0Right(True)
-            Case Keys.Space, Keys.ControlKey
+            Case Keys.Space
                 _emulator.Tia.SetFireButton0(True)
             Case Keys.F2
                 _emulator.Riot.SetConsoleSelect(True)
@@ -147,7 +147,7 @@ Public Class Form1
                 _emulator.Riot.SetJoystick0Left(False)
             Case Keys.Right
                 _emulator.Riot.SetJoystick0Right(False)
-            Case Keys.Space, Keys.ControlKey
+            Case Keys.Space
                 _emulator.Tia.SetFireButton0(False)
             Case Keys.F2
                 _emulator.Riot.SetConsoleSelect(False)
