@@ -102,4 +102,59 @@ Public NotInheritable Class AtariRiot
                 _timerUnderflow = False
         End Select
     End Sub
+
+    ' Joystick control methods
+    ' SWCHA bit mapping for Player 0: bit 7=right, 6=left, 5=down, 4=up
+    ' SWCHA bit mapping for Player 1: bit 3=right, 2=left, 1=down, 0=up (not yet implemented)
+    ' Active low (0 = pressed)
+    
+    Public Sub SetJoystick0Up(pressed As Boolean)
+        If pressed Then
+            _swcha = _swcha And &HEF  ' Clear bit 4
+        Else
+            _swcha = _swcha Or &H10
+        End If
+    End Sub
+
+    Public Sub SetJoystick0Down(pressed As Boolean)
+        If pressed Then
+            _swcha = _swcha And &HDF  ' Clear bit 5
+        Else
+            _swcha = _swcha Or &H20
+        End If
+    End Sub
+
+    Public Sub SetJoystick0Left(pressed As Boolean)
+        If pressed Then
+            _swcha = _swcha And &HBF  ' Clear bit 6
+        Else
+            _swcha = _swcha Or &H40
+        End If
+    End Sub
+
+    Public Sub SetJoystick0Right(pressed As Boolean)
+        If pressed Then
+            _swcha = _swcha And &H7F  ' Clear bit 7
+        Else
+            _swcha = _swcha Or &H80
+        End If
+    End Sub
+
+    Public Sub SetConsoleReset(pressed As Boolean)
+        ' SWCHB bit 0 = Reset (active low)
+        If pressed Then
+            _swchb = _swchb And &HFE  ' Clear bit 0
+        Else
+            _swchb = _swchb Or &H1
+        End If
+    End Sub
+
+    Public Sub SetConsoleSelect(pressed As Boolean)
+        ' SWCHB bit 1 = Select (active low)
+        If pressed Then
+            _swchb = _swchb And &HFD  ' Clear bit 1
+        Else
+            _swchb = _swchb Or &H2
+        End If
+    End Sub
 End Class
