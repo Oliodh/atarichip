@@ -413,9 +413,13 @@ Public NotInheritable Class AtariTia
             Case &H1B ' GRP0
                 _grp0Old = _grp0
                 _grp0 = value
+                ' Writing to GRP0 also latches GRP1 into GRP1Old (cross-latch behavior)
+                _grp1Old = _grp1
             Case &H1C ' GRP1
                 _grp1Old = _grp1
                 _grp1 = value
+                ' Writing to GRP1 also latches GRP0 into GRP0Old (cross-latch behavior)
+                _grp0Old = _grp0
             Case &H1D ' ENAM0
                 _enam0 = value
             Case &H1E ' ENAM1
