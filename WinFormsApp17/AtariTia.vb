@@ -477,11 +477,13 @@ Public NotInheritable Class AtariTia
 
     Private Sub ApplyHorizontalMotion()
         ' Apply horizontal motion values to positions with proper wrapping
-        _posP0 = WrapPosition(_posP0 + _hmp0)
-        _posP1 = WrapPosition(_posP1 + _hmp1)
-        _posM0 = WrapPosition(_posM0 + _hmm0)
-        _posM1 = WrapPosition(_posM1 + _hmm1)
-        _posBL = WrapPosition(_posBL + _hmbl)
+        ' Note: Positive motion values move objects LEFT, negative move RIGHT
+        ' So we subtract the motion value from the position
+        _posP0 = WrapPosition(_posP0 - _hmp0)
+        _posP1 = WrapPosition(_posP1 - _hmp1)
+        _posM0 = WrapPosition(_posM0 - _hmm0)
+        _posM1 = WrapPosition(_posM1 - _hmm1)
+        _posBL = WrapPosition(_posBL - _hmbl)
     End Sub
 
     Private Function WrapPosition(position As Integer) As Integer
