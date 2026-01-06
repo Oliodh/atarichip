@@ -68,7 +68,6 @@ Public NotInheritable Class AtariTia
 
     ' TIA registers (basic set for display)
     Private _vsync As Byte   ' Vertical sync control
-    Private _vsyncPrevious As Byte  ' Previous VSYNC value for edge detection
     Private _vblank As Byte  ' Vertical blank control
     Private _colubk As Byte  ' Background color
     Private _colupf As Byte  ' Playfield color
@@ -142,7 +141,6 @@ Public NotInheritable Class AtariTia
         _scanlineCycles = 0
         _frameComplete = False
         _vsync = 0
-        _vsyncPrevious = 0
         _vblank = 0
         _colubk = 0
         _colupf = 0
@@ -185,7 +183,6 @@ Public NotInheritable Class AtariTia
         _scanline = 0
         _scanlineCycles = 0
         _frameComplete = False
-        _vsyncPrevious = _vsync
     End Sub
 
     Public Sub StepCpuCycles(cpuCycles As Integer, frameBufferArgb As Integer())
@@ -362,18 +359,17 @@ Public NotInheritable Class AtariTia
         Select Case reg And &H3FUS
             Case &H00 ' VSYNC
                 ' Vertical sync control (bit 1)
-                ' Detect falling edge of VSYNC (transition from enabled to disabled)
-                ' This marks the end of vertical retrace and beginning of a new frame
-                Dim vsyncWasEnabled As Boolean = (_vsyncPrevious And VSYNC_ENABLE_MASK) <> 0
+                ' VSYNC marks the start of vertical retrace
+                ' Detect falling edge (transition from enabled to disabled) to complete frame early
+                Dim vsyncWasEnabled As Boolean = (_vsync And VSYNC_ENABLE_MASK) <> 0
                 Dim vsyncNowEnabled As Boolean = (value And VSYNC_ENABLE_MASK) <> 0
                 
-                ' If VSYNC falling edge detected (was on, now off), start new frame
-                If vsyncWasEnabled AndAlso Not vsyncNowEnabled Then
-                    _scanline = 0
-                    _scanlineCycles = 0
+                ' If VSYNC falling edge detected and we're past the visible area,
+                ' complete the frame to prevent screen rolling
+                If vsyncWasEnabled AndAlso Not vsyncNowEnabled AndAlso _scanline >= VisibleStartLine + FrameHeight Then
+                    _frameComplete = True
                 End If
                 
-                _vsyncPrevious = _vsync
                 _vsync = value
             Case &H01 ' VBLANK
                 ' Vertical blank control (bit 1 enables blanking)
