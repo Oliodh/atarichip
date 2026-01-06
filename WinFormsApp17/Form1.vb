@@ -9,6 +9,7 @@ Public Class Form1
     Private _emulator As VcsEmulator
     Private ReadOnly _frameBuffer As Integer() = New Integer(AtariTia.FrameWidth * AtariTia.FrameHeight - 1) {}
     Private ReadOnly _bitmap As New Bitmap(AtariTia.FrameWidth, AtariTia.FrameHeight, PixelFormat.Format32bppArgb)
+    Private _isRendering As Boolean
 
     Public Sub New()
         InitializeComponent()
@@ -67,13 +68,19 @@ Public Class Form1
     End Sub
 
     Private Sub RunFrameAndRender()
-        If _emulator Is Nothing Then Return
+        If _emulator Is Nothing OrElse _isRendering Then Return
+        _isRendering = True
 
-        _emulator.RunFrame(_frameBuffer)
-        RenderFrame()
+        Try
+            _emulator.RunFrame(_frameBuffer)
+            RenderFrame()
+        Finally
+            _isRendering = False
+        End Try
     End Sub
 
     Private Sub RenderFrame()
+        ' Frame is tiny (160x192), so per-frame lock/copy is acceptable for now.
         Dim data = _bitmap.LockBits(New Rectangle(0, 0, _bitmap.Width, _bitmap.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb)
         Try
             Marshal.Copy(_frameBuffer, 0, data.Scan0, _frameBuffer.Length)
